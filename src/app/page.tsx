@@ -6,8 +6,7 @@ export default function Home() {
           ModuleTracker
         </h1>
         <p className="text-zinc-600 dark:text-zinc-400">
-          Production tracker for Cornell NanoScale Facility VR training modules.
-          Scaffolding in progress.
+          Production tracker for VR training modules. Scaffolding in progress.
         </p>
       </main>
     </div>

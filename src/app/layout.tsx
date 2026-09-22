@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ModuleTracker",
-  description: "Production tracker for CNF VR training modules",
+  description: "Production tracker for VR training modules",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

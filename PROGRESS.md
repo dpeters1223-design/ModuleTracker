@@ -5,8 +5,30 @@
 > engineering status — what's built, what decisions are locked in, and what's next. Update
 > this file as you go; it's the source of truth for "where are we."
 
-**Live app:** https://moduletrackercnf.vercel.app (Vercel project `peters10/moduletrackercnf`,
+**Live app:** https://vr-module-tracker.vercel.app (Vercel project `peters10/vr-module-tracker`,
 auto-deploys on every push to `main`). **Repo:** github.com/dpeters1223-design/ModuleTracker.
+
+> Vercel project was originally named `moduletrackercnf` / URL `moduletrackercnf.vercel.app`,
+> renamed 2026-09-22 (see **Branding** below for why) via Settings → General → Project Name.
+> Renaming in place changes the `.vercel.app` URL without disconnecting the GitHub repo.
+
+## Branding — no Cornell/CNF in anything public-facing
+
+Per the README, this is **David's personal project, not owned by Cornell** — CNF's module
+content is what it's used to produce, but the tool itself isn't a Cornell property. So:
+
+- **Never put "Cornell" or "CNF" in anything a user/visitor sees**: page titles, meta
+  descriptions, on-page copy, the Vercel project name/URL, error messages, etc. Use generic
+  language like "VR training modules" instead.
+- **Internal engineering docs are fine as-is** (this file, README.md, code comments, commit
+  messages) — those are for the dev team, not public-facing, and need the real domain context
+  to be useful.
+- This was caught and fixed 2026-09-22: the placeholder page said "Cornell NanoScale Facility"
+  and the Vercel project was named `moduletrackercnf`. Both were changed to generic wording —
+  see `src/app/page.tsx` / `src/app/layout.tsx` (metadata description) for the current copy.
+  Watch for this recurring once real module data (with CNF-specific tool/process names) starts
+  appearing in UI copy later — that's expected and fine since it's the actual content being
+  tracked, just don't add *Cornell/CNF-as-owner* branding to the chrome around it.
 
 ## Locked-in architecture decisions (don't re-litigate these)
 
