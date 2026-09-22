@@ -58,9 +58,10 @@ repo — see README.md "Context" section for what's in there).
         replaced with ModuleTracker-specific content instead of the create-next-app default
   - [x] `npm run build` passes cleanly
   - [x] `git add` + first commit of the scaffold (commit `d0a964e`)
-  - [ ] `git push` to `origin/main` (github.com/dpeters1223-design/ModuleTracker)
+  - [x] `git push` to `origin/main` (github.com/dpeters1223-design/ModuleTracker)
   - [ ] Connect the repo to a Vercel project — **requires David's Vercel account**, cannot be
         done from the CLI/agent. Go to vercel.com → New Project → import the GitHub repo.
+        Build settings should auto-detect (Next.js). No env vars needed yet for this step.
   - [ ] Confirm the placeholder page renders at the live Vercel URL
 - [ ] **M1 — Database**: add Prisma, write `prisma/schema.prisma` per the data model above,
       add Postgres via Vercel's Neon integration, run initial migration, add a `/api/health`
