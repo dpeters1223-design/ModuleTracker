@@ -5,6 +5,9 @@
 > engineering status — what's built, what decisions are locked in, and what's next. Update
 > this file as you go; it's the source of truth for "where are we."
 
+**Live app:** https://moduletrackercnf.vercel.app (Vercel project `peters10/moduletrackercnf`,
+auto-deploys on every push to `main`). **Repo:** github.com/dpeters1223-design/ModuleTracker.
+
 ## Locked-in architecture decisions (don't re-litigate these)
 
 Decided with the project owner (David) on 2026-09-22:
@@ -48,7 +51,7 @@ repo — see README.md "Context" section for what's in there).
 
 ## Build sequence & status
 
-- [~] **M0 — Scaffold & prove the pipeline** (in progress)
+- [x] **M0 — Scaffold & prove the pipeline** — DONE
   - [x] `create-next-app` scaffolded: Next.js 16 (Turbopack), TypeScript, Tailwind v4, App
         Router, `src/` dir, `@/*` import alias, npm
       - Scaffolded into a temp lowercase-named dir first (npm rejects capital letters in
@@ -59,13 +62,14 @@ repo — see README.md "Context" section for what's in there).
   - [x] `npm run build` passes cleanly
   - [x] `git add` + first commit of the scaffold (commit `d0a964e`)
   - [x] `git push` to `origin/main` (github.com/dpeters1223-design/ModuleTracker)
-  - [ ] Connect the repo to a Vercel project — **requires David's Vercel account**, cannot be
-        done from the CLI/agent. Go to vercel.com → New Project → import the GitHub repo.
-        Build settings should auto-detect (Next.js). No env vars needed yet for this step.
-  - [ ] Confirm the placeholder page renders at the live Vercel URL
-- [ ] **M1 — Database**: add Prisma, write `prisma/schema.prisma` per the data model above,
-      add Postgres via Vercel's Neon integration, run initial migration, add a `/api/health`
-      route that queries the DB to confirm connectivity in production.
+  - [x] Connect the repo to a Vercel project — done. Vercel project: `peters10/moduletrackercnf`.
+  - [x] Confirm the placeholder page renders at the live Vercel URL — confirmed at
+        **https://moduletrackercnf.vercel.app** ("ModuleTracker — Production tracker for
+        Cornell NanoScale Facility VR training modules. Scaffolding in progress.")
+        Every push to `main` auto-deploys here going forward.
+- [~] **M1 — Database** (in progress): add Prisma, write `prisma/schema.prisma` per the data
+      model above, add Postgres via Vercel's Neon integration, run initial migration, add a
+      `/api/health` route that queries the DB to confirm connectivity in production.
 - [ ] **M2 — Auth**: Auth.js + Google provider, email allowlist via env var, gate all routes.
 - [ ] **M3 — Modules**: seed script (24-module roadmap from CNF's "Toms VR list" spreadsheet
       data, already extracted once this session — see note below) + dashboard list page +
