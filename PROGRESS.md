@@ -85,13 +85,57 @@ repo — see README.md "Context" section for what's in there).
   - [x] `git add` + first commit of the scaffold (commit `d0a964e`)
   - [x] `git push` to `origin/main` (github.com/dpeters1223-design/ModuleTracker)
   - [x] Connect the repo to a Vercel project — done. Vercel project: `peters10/moduletrackercnf`.
-  - [x] Confirm the placeholder page renders at the live Vercel URL — confirmed at
-        **https://moduletrackercnf.vercel.app** ("ModuleTracker — Production tracker for
-        Cornell NanoScale Facility VR training modules. Scaffolding in progress.")
-        Every push to `main` auto-deploys here going forward.
-- [~] **M1 — Database** (in progress): add Prisma, write `prisma/schema.prisma` per the data
-      model above, add Postgres via Vercel's Neon integration, run initial migration, add a
-      `/api/health` route that queries the DB to confirm connectivity in production.
+  - [x] Confirm the placeholder page renders at the live Vercel URL — confirmed working
+        (see "Live app" link at top; URL/copy were later renamed/genericized, see Branding
+        section above).
+- [~] **M1 — Database** (in progress)
+  - [x] `prisma` + `@prisma/client` installed, pinned to matching stable `7.10.0` (a first
+        `npm install prisma` grabbed an `8.0.0-rc` while `@prisma/client` grabbed stable
+        `7.10.0` — mismatched majors, re-pinned both to `^7` before writing any schema)
+  - [x] `prisma/schema.prisma` written per the data model above (`User`, `Module`, `Scene`,
+        `DocumentLink`, `Task`, `ChangeOrder` + their enums)
+  - [x] **Prisma 7 breaking change hit and fixed**: `datasource.url` in `schema.prisma` is no
+        longer supported in Prisma 7 (used to be the standard way to wire up the DB). Now:
+        - `schema.prisma`'s `datasource db` block only has `provider = "postgresql"`, no `url`
+        - `prisma.config.ts` (new, repo root) holds the connection URL for CLI/migrate
+          commands, via `datasource.url` reading `DIRECT_URL` (falls back to `DATABASE_URL`)
+        - The running app no longer uses a bare `datasource.url` at all — it must construct a
+          driver **adapter** and pass it to `new PrismaClient({ adapter })`. Installed
+          `@prisma/adapter-neon` (Neon's HTTP-based adapter, suited to Vercel serverless
+          functions vs. pooled TCP) + `dotenv` (needed so `prisma.config.ts` can load `.env*`
+          outside of Next's own env loading).
+        - Added `"postinstall": "prisma generate"` to `package.json` so Vercel's build
+          regenerates the client automatically (it doesn't by default).
+  - [x] `src/lib/prisma.ts` — shared PrismaClient singleton, built via a lazy `Proxy` so the
+        adapter (and its `DATABASE_URL` check) is only constructed on first real use, not at
+        module-import time. This matters because Next imports every route module during
+        `next build`'s page-data-collection pass regardless of whether the handler ever runs —
+        a top-level `new PrismaClient(...)` would otherwise break `npm run build` in any
+        environment without `DATABASE_URL` set (e.g. local, before Postgres is attached).
+        Verified: `npm run build` passes with no `DATABASE_URL` in the environment.
+  - [x] `/api/health` route (`src/app/api/health/route.ts`) — `prisma.module.count()`, returns
+        `{ ok, moduleCount }` or `{ ok: false, error }`. Confirmed it builds as a dynamic (ƒ)
+        route, not statically prerendered.
+  - [ ] **Needs David** — attach Postgres to the Vercel project: Storage tab → Create Database
+        → Postgres (Neon). Auto-injects `DATABASE_URL`/`DIRECT_URL`-equivalents into Vercel's
+        env vars (exact names TBD until this is done — Vercel's Postgres integration has used
+        different var names across product iterations, e.g. `POSTGRES_URL` /
+        `POSTGRES_URL_NON_POOLING`; may need a small mapping step once we see what it actually
+        names them).
+  - [ ] **Needs David** — run these in a terminal at `D:\ModuleTracker` (own browser-based
+        login, can't be driven from here):
+        ```
+        npx vercel login
+        npx vercel link
+        npx vercel env pull .env.local
+        ```
+        `.env.local` is gitignored already (`.env*` is in `.gitignore`). Report back once it
+        exists so the migration + health check can run against the real database.
+  - [ ] Run initial migration (`npx prisma migrate dev --name init`) against the real DB
+  - [ ] Confirm `/api/health` returns `{ ok: true, moduleCount: 0 }` locally, then again from
+        the deployed Vercel URL
+  - [ ] Seed script for the 24-module roadmap (see M3 — may land here or there depending on
+        sequencing when we get to it)
 - [ ] **M2 — Auth**: Auth.js + Google provider, email allowlist via env var, gate all routes.
 - [ ] **M3 — Modules**: seed script (24-module roadmap from CNF's "Toms VR list" spreadsheet
       data, already extracted once this session — see note below) + dashboard list page +
