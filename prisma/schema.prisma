@@ -6,10 +6,12 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Declared in pipeline order (Postgres sorts enums by declaration order).
 enum ModuleStatus {
+  on_hold
   not_started
-  scripting
   pre_production
+  scripting
   production
   post_production
   building
@@ -23,9 +25,12 @@ enum DocumentType {
   script
   rundown
   shot_sheet
+  questions
   two_d_assets
+  three_d_assets
   playtest_notes
-  box_folder
+  /// A Box / Google Drive / shared folder
+  folder
   other
 }
 
@@ -34,7 +39,7 @@ enum TaskPhase {
   scripting
   production
   post_production
-  uptale_build
+  build
   playtesting
   sign_off
   deployment
@@ -43,8 +48,18 @@ enum TaskPhase {
 enum TaskStatus {
   not_started
   in_progress
-  blocked
+  delayed
   completed
+}
+
+enum ChangeOrderStatus {
+  suggested
+  approved
+  in_progress
+  in_review
+  completed
+  deferred
+  declined
 }
 
 model User {
@@ -59,22 +74,24 @@ model User {
   @@map("users")
 }
 
-/// A single VR training module (e.g. "M5: Etching 1 - Wet", "Youth Outreach").
+/// A single VR training module. Modules are created in the app; nothing about
+/// a particular organization's module list is baked in.
 model Module {
   id                 String       @id @default(cuid())
-  number             String
+  /// Optional short code the team uses, e.g. "PVD1"
+  number             String?
   name               String
   status             ModuleStatus @default(not_started)
   description        String?
+  audience           String?
+  keyConcepts        String?
   learningObjectives String?
   toolsUsed          String?
   featuresDiscussed  String?
-  /// Loose string, not a real date — CNF's own tracking uses values like "Fall 2025"
+  /// Loose string, not a real date — teams often plan in values like "Fall 2026"
   targetCompletion   String?
   runtimeMinutes     Int?
-  /// Uptale platform experience ID, once built
-  experienceId       String?
-  launchUrl          String?
+  sizeMb             Float?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
@@ -82,8 +99,30 @@ model Module {
   documentLinks DocumentLink[]
   tasks         Task[]
   changeOrders  ChangeOrder[]
+  versions      ModuleVersion[]
 
   @@map("modules")
+}
+
+/// A published build of a module on the delivery platform (e.g. Uptale).
+/// A module can have several — one per version, and per workspace when it is
+/// cloned into other organizations' workspaces.
+model ModuleVersion {
+  id           String    @id @default(cuid())
+  moduleId     String
+  /// e.g. "v3", "v2.01"
+  version      String
+  platform     String?
+  workspace    String?
+  /// The platform's ID for this build
+  experienceId String?
+  launchUrl    String?
+  releasedAt   DateTime?
+  notes        String?
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@map("module_versions")
 }
 
 /// A scene within a module. Doubles as the Discovery Form's per-scene capture
@@ -93,12 +132,17 @@ model Scene {
   moduleId               String
   order                  Int
   title                  String?
+  description            String?
   location               String?
   talent                 String?
   backgroundMediaType    String?
   speaker                String?
   toolUsed               String?
   interactionHighlighted String?
+  learningObjectives     String?
+  /// Quizzes, clickables and other activities in the scene
+  activities             String?
+  mediaAssets            String?
   notes                  String?
 
   module        Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
@@ -126,8 +170,7 @@ model DocumentLink {
   @@map("document_links")
 }
 
-/// A production task for a module, replacing CNF's per-module timeline tables
-/// (Project Binder) that tracked owner/dates/status by phase.
+/// A production task for a module, with owner, dates and status, grouped by phase.
 model Task {
   id        String     @id @default(cuid())
   moduleId  String
@@ -145,24 +188,24 @@ model Task {
   @@map("tasks")
 }
 
-/// Logs a change to an already-locked/signed-off module, mirroring the schema CNF
-/// already uses in its own Track Changes spreadsheet.
+/// A requested change to a module that is already signed off or deployed.
 model ChangeOrder {
-  id             String    @id @default(cuid())
-  moduleId       String
-  /// Not a Scene FK — CNF's own log references scenes loosely (e.g. "ALL SCENES")
+  id             String            @id @default(cuid())
+  /// Null means the change applies to all modules
+  moduleId       String?
+  /// Free text, not a Scene FK — changes often span scenes (e.g. "all scenes")
   sceneRef       String?
   description    String
-  status         String?
+  status         ChangeOrderStatus @default(suggested)
   suggestedBy    String?
   suggestedDate  DateTime?
   goalDate       DateTime?
   approvedBy     String?
   completedDate  DateTime?
-  versionUpdated Boolean   @default(false)
+  versionUpdated Boolean           @default(false)
   notes          String?
 
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@map("change_orders")
 }
