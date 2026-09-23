@@ -239,7 +239,9 @@ The docs themselves stay out of the repo; this is the summary that matters for t
   - Was briefly behind a temporary `SITE_PASSWORD` basic-auth gate (deployed 2026-09-23 for
     David's demo); replaced by Google sign-in in M2 below.
   - Not built yet: editing a submitted module/scenes.
-- [~] **M2 — Auth** (code done 2026-09-23, **awaiting Google OAuth client** to test/deploy):
+- [x] **M2 — Auth** — deployed 2026-09-23 (commit `1cb3ef0`). Vercel Production env set via
+      CLI from `.env.local`; DB cleared of test modules before deploy (users kept — the Drive
+      owner's stored token is required). `SITE_PASSWORD` in Vercel is now unused.
   - Auth.js v5 (`next-auth@5.0.0-beta.32`, supports Next 16) in `src/auth.ts`, JWT sessions,
     Google provider requesting `drive.file` + offline access. `signIn` callback enforces
     `ALLOWED_EMAILS`; `jwt` callback upserts `User` and stores Google tokens on it
