@@ -71,6 +71,60 @@ These mirror the schemas CNF already uses in their own Track-Changes sheet and W
 Notes doc (verified against the source files in `D:\CNF Docs`, which is **not** part of this
 repo — see README.md "Context" section for what's in there).
 
+## Findings from the CNF source docs (read in full 2026-09-23)
+
+All 12 docs in the CNF Docs folder were read (see "Where the domain research came from" below).
+The docs themselves stay out of the repo; this is the summary that matters for the build.
+
+**Seed data sources**
+- **Module list** — xlsx tab "March 25 - Toms VR list": 24 modules with description, key
+  concepts, status. The "Package Immersive Experiences Learning Objectives" doc adds audience,
+  learning objectives, Uptale description, runtime and size (MB) for completed modules, plus two
+  not on Tom's list (AJA Sputter Tool Operation, UHP Welding).
+- **Versions** — Project Binder "Version Control Log": version #, Uptale experience ID, launch
+  URL, last-updated date per module (latest Jul–Aug 2026).
+- **Tasks** — xlsx tab "Project outline": ~200 dated rows (module, task, details, responsible,
+  start, due, status). Same columns as the per-module timeline tables in the Project Binder.
+- **Change orders** — xlsx tabs "Module Track Changes Completed" + "Module Track Change
+  Suggestions": ~75 real rows.
+- **Document links** — Project Binder per-module tables (Box folder, storyboard, script, rundown,
+  shot sheet, questions, 2D/3D assets, playtest notes). 268 hyperlinks, could be imported.
+- Out of scope: hours/billing tabs, headset setup guides, tool manuals.
+
+**Production status as of 9/21/26 weekly notes**
+- M8 MOS Clean signed off 5/4/26; M9 Film Growth signed off 8/6/26.
+- Qubits is split into **M10 (Day 1)** and **M11 (Day 2)**; full script draft review in progress.
+- Next four decided 9/21: PVD1 Sputtering, PVD2 Evaporation, Metrology 1, Metrology 2 (note: this
+  swaps PVD1/PVD2 vs. Tom's list, which has PVD1 = Evaporation).
+- Numbering: M0 Gowning, M1–M9 educational; tours/outreach (Safety, General Tour, Youth Tour,
+  Careers in a High Tech World) are unnumbered.
+
+**Schema gaps to resolve before seeding** (current `schema.prisma` vs. real data)
+- `TaskStatus`: real values are Completed (166), In Progress (11), Delayed (9), Upcoming (6).
+  Need `delayed`; `upcoming` ≈ `not_started`; `blocked` is never used.
+- `ModuleStatus`: roadmap uses Back-burner, Next up, Early stage planning, In Pre-Prod — no
+  backlog/on-hold equivalent. Signed-off modules are "locked" and "reopened" for change orders.
+- `Module`: missing audience, key concepts, version #, size (MB), last updated. Experience IDs
+  differ across versions and school workspaces, so a single `experienceId` may not be enough
+  (possible `ModuleVersion` table later).
+- `Scene`: the storyboard template also has scene description, per-scene learning objectives,
+  activity timeline (quizzes/clickables) and a media-asset list.
+- `ChangeOrder`: some rows apply to "ALL MODULES" (required `moduleId` can't express that).
+  Status values: Closed, Edit Complete, Reopened/Editing, Waiting for review, Will reopen in the
+  future, Proof of Concept Solution. Suggestions vs. completed can be one table + status.
+
+**Discovery Form (M6) inputs**
+- The Qubits storyboard doc contains CNF's "Uptale Project Discovery Questions": goal/purpose,
+  target audience, stakeholders, key dates; on-screen talent vs. pop-up text, who writes the
+  script, length / one-off vs. series; brand guidelines; 2D/3D assets needed; custom activities;
+  interactivity tier.
+- **Interactivity Matrix**: Level 1 = base (360 video, doors, text pop-ups, quizzes, CC photos);
+  Level 2 = + custom 2D/3D elements; Level 3 = fully custom multi-step activities.
+- Per-scene storyboard columns: Scene · VID or IMG · Location · Focus tool · Description ·
+  Scene learning objectives · Activity timeline (quizzes, clickables) · Media assets.
+- The AJA Sputter Tool Walkthrough doc is raw SME material for the upcoming Sputtering module —
+  a good test case for what the form should capture.
+
 ## Build sequence & status
 
 - [x] **M0 — Scaffold & prove the pipeline** — DONE
@@ -148,8 +202,8 @@ repo — see README.md "Context" section for what's in there).
   - [x] Confirmed `/api/health` locally: started `next dev`, hit `localhost:3000/api/health`,
         got back `{"ok":true,"moduleCount":0}` — real DB connectivity confirmed. Stopped the
         dev server afterward (killed the process holding port 3000).
-  - [ ] Confirm `/api/health` from the deployed Vercel URL too (should just work — production
-        already has the real `DATABASE_URL` injected — but hasn't been explicitly checked yet)
+  - [x] Confirmed `/api/health` from the deployed Vercel URL (2026-09-23):
+        `https://vr-module-tracker.vercel.app/api/health` → `{"ok":true,"moduleCount":0}`.
   - [ ] Seed script for the 24-module roadmap (see M3 — may land here or there depending on
         sequencing when we get to it)
   - Side note: `next dev` auto-generated `AGENTS.md` and a `CLAUDE.md` that just imports it
@@ -206,5 +260,12 @@ anywhere permanent — if deeper domain detail is needed again, re-run the same 
 
 ## Next action for a fresh session
 
-Pick up at the first unchecked box under **Build sequence & status** above. As of this
-writing that's: commit the M0 scaffold, push it, and (with David) connect the repo to Vercel.
+Pick up at the first unchecked box under **Build sequence & status** above. As of 2026-09-23
+that's the M1 seed script / M2 auth. Before seeding, review the schema against the real CNF data
+(task statuses like "Delayed"/"Upcoming", module statuses like "Back-burner"/"Next up", per-scene
+storyboard fields, version/experience-ID history) — the source docs don't fit the current enums
+exactly.
+
+**Dev machines:** David works from more than one Windows machine. On the Cornell-managed one the
+repo lives at `C:\Users\dpp49\ModuleTracker` (folders under `C:\` root are admin-only there), and
+the CNF source docs are under OneDrive `Documents\CNF Docs` rather than `D:\CNF Docs`.
