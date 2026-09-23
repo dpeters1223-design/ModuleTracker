@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { ModuleStatusSelect } from "@/components/module-status-select";
 import { TaskList, type TaskRow } from "./task-list";
 import { ModuleTaskBoard } from "@/components/module-task-board";
+import { DocumentList, type DocumentRow } from "./document-list";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -31,7 +32,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
   const objectives = mod.learningObjectives?.split("\n").filter(Boolean) ?? [];
   const script = await getScript(mod.id);
 
-  const [taskRecords, ownerRows] = await Promise.all([
+  const [taskRecords, ownerRows, documentRecords] = await Promise.all([
     prisma.task.findMany({ where: { moduleId: mod.id }, orderBy: [{ dueDate: "asc" }, { order: "asc" }] }),
     prisma.task.findMany({
       where: { owner: { not: null } },
@@ -39,7 +40,19 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
       select: { owner: true },
       orderBy: { owner: "asc" },
     }),
+    prisma.documentLink.findMany({
+      where: { moduleId: mod.id, type: { not: "script" } },
+      include: { addedBy: { select: { name: true, email: true } } },
+      orderBy: { addedAt: "asc" },
+    }),
   ]);
+  const documents: DocumentRow[] = documentRecords.map((d) => ({
+    id: d.id,
+    type: d.type,
+    label: d.label,
+    url: d.url,
+    addedBy: d.addedBy?.name ?? d.addedBy?.email ?? null,
+  }));
   const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
   const tasks: TaskRow[] = taskRecords.map((t) => ({
     id: t.id,
@@ -149,6 +162,10 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
         <TaskList moduleId={mod.id} tasks={tasks} owners={owners} today={today} addOnly={taskBoard} />
         {taskBoard && <ModuleTaskBoard module={mod} tasks={taskRecords} today={today} />}
       </section>
+
+      <Section title="Documents">
+        <DocumentList moduleId={mod.id} documents={documents} />
+      </Section>
 
       <Section title="What it's about">
         <Lines text={mod.description} />

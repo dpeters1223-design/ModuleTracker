@@ -1,4 +1,17 @@
-import type { ModuleStatus, TaskPhase, TaskStatus } from "@prisma/client";
+import type { DocumentType, ModuleStatus, TaskPhase, TaskStatus } from "@prisma/client";
+
+/** Document types for the per-module library (scripts are managed on the Scripts tab). */
+export const DOCUMENT_TYPE_LABELS: Record<Exclude<DocumentType, "script">, string> = {
+  storyboard: "Storyboard",
+  rundown: "Rundown",
+  shot_sheet: "Shot sheet",
+  questions: "Questions / quiz bank",
+  two_d_assets: "2D assets",
+  three_d_assets: "3D assets",
+  playtest_notes: "Playtest notes",
+  folder: "Folder",
+  other: "Other",
+};
 
 /** In pipeline order — also the display order of task groups. */
 export const TASK_PHASE_LABELS: Record<TaskPhase, string> = {
