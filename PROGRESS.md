@@ -288,12 +288,29 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     test-user list, no 7-day token expiry). Chosen so Cornell teammates aren't blocked.
   - Script = a `DocumentLink` with `type: script` + `driveFileId`; folder id on
     `Module.driveFolderId` (migration `20260923200000_google_drive_fields`, applied).
-- [ ] **M3 — Modules**: dashboard list page + create/edit module + module detail page
-      (no seed data — modules are entered in the app).
-- [ ] **M4 — Document Library**: CRUD UI for `DocumentLink`, grouped by type, on the module
-      detail page.
-- [ ] **M5 — Tasks & Timeline**: CRUD UI for `Task` per module (table grouped by phase) —
-      replaces CNF's Project Binder per-module timeline tables.
+- [x] **M3 — Modules**: list (+ board) page, create via Discovery Form, edit, detail page.
+- [x] **Local-only work since the M2 deploy (2026-09-23, committed, NOT pushed — David wants
+      to develop locally before the next deploy):**
+  - **M5 Tasks & timeline**: module page task list grouped by phase (add/edit/delete, owner
+    autocomplete, start/due dates stored at noon UTC, overdue flag, quick status pill);
+    top-level **Tasks** tab (`/tasks`) with Overdue / next 7 days / Later / No date groups and
+    owner/module/show-done filters in the URL. Shared helpers: `src/lib/task-format.ts`
+    (server-safe) + `src/components/task-status.tsx` (client pill).
+  - **Module editing**: `/modules/[id]/edit` reuses the Discovery Form in edit mode
+    (`moduleToDiscovery` reverses storage; `updateDiscovery` matches scenes by id), instant
+    status picker on the module header, delete module (danger zone; Drive untouched).
+  - **Boards**: Modules tab List/Board toggle. Board = one labeled task board per module
+    (columns = task phases; status picker + progress in header). Module page Tasks section
+    has its own List/Board toggle. (A modules-by-status board was built first and replaced
+    at David's request.)
+  - **M4 Documents library**: module page "Documents" section, links grouped by type
+    (`DOCUMENT_TYPE_LABELS`; scripts excluded — they live on the Scripts tab), add/remove.
+  - Testing approach: scratchpad scripts mint a local Auth.js session cookie (signed with the
+    local `AUTH_SECRET`) to GET signed-in pages and invoke Server Actions by id from
+    `.next/dev/server/server-reference-manifest.json`, using temp modules that are deleted
+    afterwards.
+- [x] **M4 — Document Library** (see above).
+- [x] **M5 — Tasks & Timeline** (see above).
 - [ ] **M6 — Discovery Form**: guided multi-step form (top-level questions, then repeatable
       "add a scene" blocks) writing to `Module` + `Scene`.
 - [ ] **M7 — Change Orders**: CRUD UI for `ChangeOrder` mirroring CNF's existing log schema.
