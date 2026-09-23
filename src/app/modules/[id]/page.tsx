@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { getModule } from "@/lib/modules";
 import { getScript } from "@/lib/scripts";
 import { MODULE_STATUS_LABELS } from "@/lib/labels";
+import { prisma } from "@/lib/prisma";
+import { TaskList, type TaskRow } from "./task-list";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -26,6 +28,29 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
 
   const objectives = mod.learningObjectives?.split("\n").filter(Boolean) ?? [];
   const script = await getScript(mod.id);
+
+  const [taskRecords, ownerRows] = await Promise.all([
+    prisma.task.findMany({ where: { moduleId: mod.id }, orderBy: [{ dueDate: "asc" }, { order: "asc" }] }),
+    prisma.task.findMany({
+      where: { owner: { not: null } },
+      distinct: ["owner"],
+      select: { owner: true },
+      orderBy: { owner: "asc" },
+    }),
+  ]);
+  const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
+  const tasks: TaskRow[] = taskRecords.map((t) => ({
+    id: t.id,
+    title: t.title,
+    phase: t.phase,
+    owner: t.owner ?? "",
+    status: t.status,
+    startDate: day(t.startDate),
+    dueDate: day(t.dueDate),
+    notes: t.notes ?? "",
+  }));
+  const owners = ownerRows.map((o) => o.owner!).filter(Boolean);
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8 sm:px-6">
@@ -78,6 +103,10 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
         </span>
         <span className="text-zinc-500">{script ? "Open →" : "Start →"}</span>
       </Link>
+
+      <Section title="Tasks & timeline">
+        <TaskList moduleId={mod.id} tasks={tasks} owners={owners} today={today} />
+      </Section>
 
       <Section title="What it's about">
         <Lines text={mod.description} />
