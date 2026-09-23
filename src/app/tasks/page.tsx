@@ -5,7 +5,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { TASK_PHASE_LABELS } from "@/lib/labels";
 import { moduleTitle } from "@/lib/script-template";
-import { formatDay, TaskStatusSelect } from "@/components/task-status";
+import { TaskStatusSelect } from "@/components/task-status";
+import { formatDay } from "@/lib/task-format";
 
 export const metadata: Metadata = { title: "Tasks · ModuleTracker" };
 

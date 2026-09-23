@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { TASK_PHASE_LABELS, TASK_STATUS_LABELS } from "@/lib/labels";
-import { formatDay as fmt, TASK_STATUSES as STATUSES, TaskStatusSelect } from "@/components/task-status";
+import { TaskStatusSelect } from "@/components/task-status";
+import { formatDay as fmt, TASK_STATUSES as STATUSES } from "@/lib/task-format";
 import { createTask, deleteTask, updateTask, type TaskInput, type TaskResult } from "./task-actions";
 
 export type TaskRow = TaskInput & { id: string };
