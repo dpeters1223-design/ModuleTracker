@@ -236,12 +236,38 @@ The docs themselves stay out of the repo; this is the summary that matters for t
   - `/modules/[id]` read-only module page; `/` module list with an empty state; header nav.
   - Verified: lint + build pass; posted valid/invalid payloads to the action on `next dev`
     (redirect on success, field errors on failure), confirmed DB rows, deleted test data.
-  - **Temporary password gate** (`src/proxy.ts`, Next 16's renamed middleware): HTTP Basic
-    auth, any username + `SITE_PASSWORD` env var (set in Vercel, Production). Fails closed
-    (503) if unset in production; open in local `next dev` when unset. Added 2026-09-23 so
-    David could demo online before M2. **Delete `src/proxy.ts` when Google sign-in lands.**
+  - Was briefly behind a temporary `SITE_PASSWORD` basic-auth gate (deployed 2026-09-23 for
+    David's demo); replaced by Google sign-in in M2 below.
   - Not built yet: editing a submitted module/scenes.
-- [ ] **M2 — Auth**: Auth.js + Google provider, email allowlist via env var, gate all routes.
+- [~] **M2 — Auth** (code done 2026-09-23, **awaiting Google OAuth client** to test/deploy):
+  - Auth.js v5 (`next-auth@5.0.0-beta.32`, supports Next 16) in `src/auth.ts`, JWT sessions,
+    Google provider requesting `drive.file` + offline access. `signIn` callback enforces
+    `ALLOWED_EMAILS`; `jwt` callback upserts `User` and stores Google tokens on it
+    (`googleAccessToken/RefreshToken/TokenExpiresAt`, never sent to the browser).
+  - `src/proxy.ts` now redirects anyone not signed in/allowlisted to `/signin` (API → 401);
+    the temporary `SITE_PASSWORD` basic-auth gate is gone (env var can be deleted in Vercel).
+    Server Actions re-check with `requireUser()` (`src/lib/session.ts`).
+  - Env needed (local `.env.local` + Vercel Production): `AUTH_SECRET` (local one generated;
+    Vercel already has one), `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ALLOWED_EMAILS`.
+  - Google Cloud project is owned by David's personal Google account; consent screen External,
+    Testing mode (test users must be added; refresh tokens expire after 7 days in Testing).
+    Redirect URIs: `http://localhost:3000/api/auth/callback/google`,
+    `https://vr-module-tracker.vercel.app/api/auth/callback/google`.
+  - **Open risk:** Cornell Google Workspace may block third-party apps' Drive access for
+    Cornell accounts. Test with Tom's account early.
+- [~] **Scripts via Google Drive** (David chose "Option 2 + import", 2026-09-23; code done,
+      untested against real Google):
+  - Module page "Script" panel (`src/app/modules/[id]/script-panel.tsx`, actions in
+    `script-actions.ts`): **Start script from Discovery Form** (creates a per-module Drive
+    folder, shares it with the other `ALLOWED_EMAILS` as editors without notification emails,
+    then a Google Doc converted from HTML built by `src/lib/script-template.ts`), **Import Word
+    file** (browser uploads directly to Drive via resumable upload with a short-lived
+    drive.file token, since Vercel caps request bodies at ~4.5 MB; Drive converts to a Doc),
+    **Link an existing doc** (any https URL; metadata only if the app can see the file), and
+    Unlink. Shows live "last edited by/when" from Drive.
+  - Drive REST calls via `fetch` in `src/lib/google-drive.ts` (no googleapis dependency).
+  - Script = a `DocumentLink` with `type: script` + `driveFileId`; folder id on
+    `Module.driveFolderId` (migration `20260923200000_google_drive_fields`, applied).
 - [ ] **M3 — Modules**: dashboard list page + create/edit module + module detail page
       (no seed data — modules are entered in the app).
 - [ ] **M4 — Document Library**: CRUD UI for `DocumentLink`, grouped by type, on the module

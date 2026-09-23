@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+import { auth, signOut } from "@/auth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,7 +19,10 @@ export const metadata: Metadata = {
   description: "Production tracker for VR training modules",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const session = await auth();
+  const navLink =
+    "text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100";
   return (
     <html
       lang="en"
@@ -30,12 +34,24 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="font-semibold tracking-tight">
               ModuleTracker
             </Link>
-            <Link
-              href="/discovery/new"
-              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-            >
-              Discovery Form
-            </Link>
+            {session?.user && (
+              <div className="flex items-center gap-4">
+                <Link href="/discovery/new" className={navLink}>
+                  Discovery Form
+                </Link>
+                <span className="hidden text-sm text-zinc-400 sm:inline">{session.user.email}</span>
+                <form
+                  action={async () => {
+                    "use server";
+                    await signOut({ redirectTo: "/signin" });
+                  }}
+                >
+                  <button type="submit" className={navLink}>
+                    Sign out
+                  </button>
+                </form>
+              </div>
+            )}
           </nav>
         </header>
         {children}

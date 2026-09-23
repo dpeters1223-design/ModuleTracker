@@ -4,12 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { cleanDiscovery, type DiscoveryInput } from "@/lib/discovery";
+import { requireUser } from "@/lib/session";
 
 export type DiscoveryResult = { errors: string[] };
 
-// TODO(M2): verify the signed-in user here once auth lands — Server Actions are
-// reachable by direct POST, not just through the form.
 export async function submitDiscovery(input: DiscoveryInput): Promise<DiscoveryResult> {
+  await requireUser();
   const { data, errors } = cleanDiscovery(input);
   if (errors.length) return { errors };
 

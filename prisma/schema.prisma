@@ -69,6 +69,12 @@ model User {
   image     String?
   createdAt DateTime @default(now())
 
+  /// Google OAuth tokens (scope: drive.file), saved at sign-in so server code
+  /// can create/import Docs as this user. Never sent to the browser.
+  googleAccessToken    String?
+  googleRefreshToken   String?
+  googleTokenExpiresAt DateTime?
+
   documentLinksAdded DocumentLink[]
 
   @@map("users")
@@ -92,6 +98,8 @@ model Module {
   targetCompletion   String?
   runtimeMinutes     Int?
   sizeMb             Float?
+  /// Google Drive folder the app created for this module's docs
+  driveFolderId      String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
@@ -154,14 +162,16 @@ model Scene {
 /// A link out to an artifact that lives in Google Drive/Box (storyboard, script, etc.) —
 /// this app does not host or edit the document itself, per the v1 architecture decision.
 model DocumentLink {
-  id        String       @id @default(cuid())
-  moduleId  String
-  sceneId   String?
-  type      DocumentType
-  label     String?
-  url       String
-  addedById String?
-  addedAt   DateTime     @default(now())
+  id          String       @id @default(cuid())
+  moduleId    String
+  sceneId     String?
+  type        DocumentType
+  label       String?
+  url         String
+  /// Set when the file is a Google Drive file the app can read metadata for
+  driveFileId String?
+  addedById   String?
+  addedAt     DateTime     @default(now())
 
   module  Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   scene   Scene? @relation(fields: [sceneId], references: [id], onDelete: SetNull)

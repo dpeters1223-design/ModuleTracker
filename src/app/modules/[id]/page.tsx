@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { MODULE_STATUS_LABELS } from "@/lib/labels";
+import { auth } from "@/auth";
+import { getFileMeta, getGoogleAccessToken } from "@/lib/google-drive";
+import { ScriptPanel, type ScriptInfo } from "./script-panel";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -30,6 +33,29 @@ export default async function ModulePage(props: PageProps<"/modules/[id]">) {
   if (!mod) notFound();
 
   const objectives = mod.learningObjectives?.split("\n").filter(Boolean) ?? [];
+
+  const scriptLink = await prisma.documentLink.findFirst({
+    where: { moduleId: id, type: "script" },
+    orderBy: { addedAt: "desc" },
+  });
+  let script: ScriptInfo | null = null;
+  if (scriptLink) {
+    // Live "last edited" info from Drive, when this viewer's token can see the file.
+    const session = await auth();
+    const meta =
+      scriptLink.driveFileId && session?.user?.id && session.driveGranted
+        ? await getGoogleAccessToken(session.user.id)
+            .then((token) => getFileMeta(token, scriptLink.driveFileId!))
+            .catch(() => null)
+        : null;
+    script = {
+      id: scriptLink.id,
+      url: scriptLink.url,
+      label: meta?.name ?? scriptLink.label,
+      lastEdited: meta?.modifiedTime ?? null,
+      lastEditedBy: meta?.lastModifyingUser?.displayName ?? null,
+    };
+  }
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8 sm:px-6">
@@ -59,6 +85,10 @@ export default async function ModulePage(props: PageProps<"/modules/[id]">) {
           {mod.runtimeMinutes && <span>~{mod.runtimeMinutes} min</span>}
         </div>
       </header>
+
+      <Section title="Script">
+        <ScriptPanel moduleId={mod.id} script={script} />
+      </Section>
 
       <Section title="What it's about">
         <Lines text={mod.description} />

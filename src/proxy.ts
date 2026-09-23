@@ -1,31 +1,21 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { isAllowedEmail } from "@/lib/allowlist";
 
-// Temporary shared-password gate (HTTP Basic auth) so the prototype can be
-// online before real sign-in lands in M2 — delete this file then. Any username
-// works; the password must match SITE_PASSWORD. Fails closed if SITE_PASSWORD
-// is unset, except in local `next dev`.
-export function proxy(request: NextRequest) {
-  const password = process.env.SITE_PASSWORD;
-  if (!password) {
-    if (process.env.NODE_ENV === "development") return NextResponse.next();
-    return new NextResponse("Site password not configured.", { status: 503 });
+// Sends anyone not signed in (or no longer on ALLOWED_EMAILS) to /signin.
+// This is the optimistic first gate; Server Actions re-check via requireUser().
+export const proxy = auth((req) => {
+  const { pathname, search } = req.nextUrl;
+  if (pathname === "/signin" || pathname.startsWith("/api/auth")) return;
+  if (isAllowedEmail(req.auth?.user?.email)) return;
+
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
-
-  const header = request.headers.get("authorization");
-  if (header?.startsWith("Basic ")) {
-    try {
-      const decoded = atob(header.slice(6));
-      if (decoded.slice(decoded.indexOf(":") + 1) === password) {
-        return NextResponse.next();
-      }
-    } catch {}
-  }
-
-  return new NextResponse("Password required.", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="ModuleTracker", charset="UTF-8"' },
-  });
-}
+  const url = new URL("/signin", req.nextUrl);
+  url.searchParams.set("callbackUrl", pathname + search);
+  return NextResponse.redirect(url);
+});
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
