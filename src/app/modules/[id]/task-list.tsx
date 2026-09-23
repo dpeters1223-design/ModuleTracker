@@ -138,16 +138,19 @@ function TaskForm({
   );
 }
 
+/** With `addOnly`, shows just the summary line and "Add task" (the board view renders the tasks). */
 export function TaskList({
   moduleId,
   tasks,
   owners,
   today,
+  addOnly = false,
 }: {
   moduleId: string;
   tasks: TaskRow[];
   owners: string[];
   today: string;
+  addOnly?: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -156,10 +159,12 @@ export function TaskList({
 
   const done = tasks.filter((t) => t.status === "completed").length;
   const overdue = tasks.filter((t) => isOverdue(t, today)).length;
-  const byPhase = PHASES.map((phase) => ({
-    phase,
-    tasks: tasks.filter((t) => t.phase === phase),
-  })).filter((g) => g.tasks.length);
+  const byPhase = addOnly
+    ? []
+    : PHASES.map((phase) => ({
+        phase,
+        tasks: tasks.filter((t) => t.phase === phase),
+      })).filter((g) => g.tasks.length);
 
   const blank: TaskInput = {
     title: "",

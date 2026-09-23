@@ -5,6 +5,7 @@ import { getScript } from "@/lib/scripts";
 import { prisma } from "@/lib/prisma";
 import { ModuleStatusSelect } from "@/components/module-status-select";
 import { TaskList, type TaskRow } from "./task-list";
+import { ModuleTaskBoard } from "@/components/module-task-board";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -22,7 +23,8 @@ function Lines({ text }: { text: string | null }) {
 
 export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]">) {
   const { id } = await props.params;
-  const { submitted, saved } = await props.searchParams;
+  const { submitted, saved, tasks: tasksView } = await props.searchParams;
+  const taskBoard = tasksView === "board";
   const mod = await getModule(id);
   if (!mod) notFound();
 
@@ -118,9 +120,35 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
         <span className="text-zinc-500">{script ? "Open →" : "Start →"}</span>
       </Link>
 
-      <Section title="Tasks & timeline">
-        <TaskList moduleId={mod.id} tasks={tasks} owners={owners} today={today} />
-      </Section>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Tasks & timeline</h2>
+          <nav className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900" aria-label="Task view">
+            {(
+              [
+                ["List", `/modules/${mod.id}`, !taskBoard],
+                ["Board", `/modules/${mod.id}?tasks=board`, taskBoard],
+              ] as const
+            ).map(([label, href, active]) => (
+              <Link
+                key={label}
+                href={href}
+                scroll={false}
+                aria-current={active ? "page" : undefined}
+                className={`rounded-md px-3 py-1 text-xs font-medium ${
+                  active
+                    ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100"
+                    : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+        <TaskList moduleId={mod.id} tasks={tasks} owners={owners} today={today} addOnly={taskBoard} />
+        {taskBoard && <ModuleTaskBoard module={mod} tasks={taskRecords} today={today} />}
+      </section>
 
       <Section title="What it's about">
         <Lines text={mod.description} />

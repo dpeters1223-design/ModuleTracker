@@ -4,11 +4,11 @@ import { connection } from "next/server";
 import type { ModuleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { MODULE_STATUS_LABELS } from "@/lib/labels";
-import { ModuleStatusSelect } from "@/components/module-status-select";
+import { ModuleTaskBoard } from "@/components/module-task-board";
 
 export const metadata: Metadata = { title: "Modules · ModuleTracker" };
 
-// Board columns in pipeline order; On hold sits apart at the end.
+// Module order for the board view: pipeline order, On hold last.
 const PIPELINE = (Object.keys(MODULE_STATUS_LABELS) as ModuleStatus[]).filter((s) => s !== "on_hold");
 
 export default async function ModulesPage(props: PageProps<"/modules">) {
@@ -21,7 +21,7 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       include: { _count: { select: { scenes: true } } },
     }),
-    prisma.task.findMany({ select: { moduleId: true, status: true, dueDate: true } }),
+    prisma.task.findMany({ orderBy: [{ dueDate: "asc" }, { order: "asc" }] }),
     prisma.documentLink.findMany({ where: { type: "script" }, select: { moduleId: true } }),
   ]);
 
@@ -114,45 +114,21 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
           </p>
         </div>
       ) : board ? (
-        <div className="flex gap-3 overflow-x-auto pb-4">
-          {[...PIPELINE, "on_hold" as const].map((status) => {
-            const column = modules.filter((m) => m.status === status);
-            return (
-              <section
-                key={status}
-                className={`flex w-64 shrink-0 flex-col rounded-lg p-2 ${
-                  status === "on_hold"
-                    ? "ml-3 border border-dashed border-zinc-300 dark:border-zinc-700"
-                    : "bg-zinc-100 dark:bg-zinc-900"
-                }`}
-              >
-                <h2 className="flex items-baseline justify-between px-1 pb-2 text-sm font-semibold">
-                  {MODULE_STATUS_LABELS[status]}
-                  <span className="text-xs font-normal text-zinc-500">{column.length}</span>
-                </h2>
-                <ul className="space-y-2">
-                  {column.map((m) => (
-                    <li
-                      key={m.id}
-                      className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-                    >
-                      <Link href={`/modules/${m.id}`} className="block text-sm font-medium hover:underline">
-                        {title(m)}
-                      </Link>
-                      {m.targetCompletion && (
-                        <p className="mt-0.5 text-xs text-zinc-500">Target {m.targetCompletion}</p>
-                      )}
-                      <p className="mt-1 text-xs text-zinc-500">{summary(m)}</p>
-                      <div className="mt-2">
-                        <ModuleStatusSelect moduleId={m.id} status={m.status} />
-                      </div>
-                    </li>
-                  ))}
-                  {column.length === 0 && <li className="px-1 text-xs text-zinc-400">None</li>}
-                </ul>
-              </section>
-            );
-          })}
+        // One task board per module, active modules first and On hold last.
+        <div className="space-y-10">
+          {[...PIPELINE, "on_hold" as const].flatMap((status) =>
+            modules
+              .filter((m) => m.status === status)
+              .map((m) => (
+                <ModuleTaskBoard
+                  key={m.id}
+                  module={m}
+                  tasks={tasks.filter((t) => t.moduleId === m.id)}
+                  today={today}
+                  showHeader
+                />
+              ))
+          )}
         </div>
       ) : (
         <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
