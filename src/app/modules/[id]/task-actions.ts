@@ -71,7 +71,7 @@ export async function createTask(moduleId: string, input: TaskInput): Promise<Ta
     select: { order: true },
   });
   await prisma.task.create({ data: { moduleId, order: (last?.order ?? 0) + 1, ...fields } });
-  revalidatePath(`/modules/${moduleId}`);
+  revalidatePath("/", "layout");
   return {};
 }
 
@@ -84,7 +84,7 @@ export async function updateTask(
   const { errors, fields } = validate(input);
   if (errors.length) return { errors };
   await prisma.task.updateMany({ where: { id: taskId, moduleId }, data: fields });
-  revalidatePath(`/modules/${moduleId}`);
+  revalidatePath("/", "layout");
   return {};
 }
 
@@ -100,13 +100,13 @@ export async function setTaskStatus(
     where: { id: taskId, moduleId },
     data: { status: status as TaskStatus },
   });
-  revalidatePath(`/modules/${moduleId}`);
+  revalidatePath("/", "layout");
   return {};
 }
 
 export async function deleteTask(moduleId: string, taskId: string): Promise<TaskResult> {
   await requireUser();
   await prisma.task.deleteMany({ where: { id: taskId, moduleId } });
-  revalidatePath(`/modules/${moduleId}`);
+  revalidatePath("/", "layout");
   return {};
 }

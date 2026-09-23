@@ -2,26 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { TASK_PHASE_LABELS, TASK_STATUS_LABELS } from "@/lib/labels";
-import {
-  createTask,
-  deleteTask,
-  setTaskStatus,
-  updateTask,
-  type TaskInput,
-  type TaskResult,
-} from "./task-actions";
+import { formatDay as fmt, TASK_STATUSES as STATUSES, TaskStatusSelect } from "@/components/task-status";
+import { createTask, deleteTask, updateTask, type TaskInput, type TaskResult } from "./task-actions";
 
 export type TaskRow = TaskInput & { id: string };
 
 const PHASES = Object.keys(TASK_PHASE_LABELS) as (keyof typeof TASK_PHASE_LABELS)[];
-const STATUSES = Object.keys(TASK_STATUS_LABELS) as (keyof typeof TASK_STATUS_LABELS)[];
-
-const STATUS_STYLES: Record<string, string> = {
-  not_started: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
-  in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
-  delayed: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  completed: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
-};
 
 const inputCls =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 " +
@@ -32,18 +18,6 @@ const btn =
 const primaryBtn = `${btn} bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300`;
 const secondaryBtn = `${btn} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`;
 const linkBtn = "text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100";
-
-/** "2026-09-03" → "Sep 3" (or "Sep 3, 2027" outside the current year). Fixed locale so server and browser agree. */
-function fmt(d: string, today: string) {
-  const date = new Date(`${d}T12:00:00Z`);
-  const sameYear = d.slice(0, 4) === today.slice(0, 4);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    ...(sameYear ? {} : { year: "numeric" }),
-    timeZone: "UTC",
-  });
-}
 
 const isOverdue = (t: TaskRow, today: string) =>
   t.status !== "completed" && !!t.dueDate && t.dueDate < today;
@@ -268,24 +242,12 @@ export function TaskList({
                 </li>
               ) : (
                 <li key={task.id} className="flex flex-wrap items-start gap-3 px-3 py-2.5">
-                  <select
-                    aria-label={`Status of ${task.title}`}
-                    className={`rounded-full border-0 px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[task.status]}`}
-                    value={task.status}
-                    disabled={pending}
-                    onChange={(e) => {
-                      const status = e.target.value;
-                      startTransition(async () => {
-                        await setTaskStatus(moduleId, task.id, status);
-                      });
-                    }}
-                  >
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {TASK_STATUS_LABELS[s]}
-                      </option>
-                    ))}
-                  </select>
+                  <TaskStatusSelect
+                    moduleId={moduleId}
+                    taskId={task.id}
+                    title={task.title}
+                    status={task.status}
+                  />
                   <div className="min-w-0 flex-1">
                     <p
                       className={`text-sm ${
