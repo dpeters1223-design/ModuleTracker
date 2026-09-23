@@ -7,6 +7,9 @@ import { ModuleStatusSelect } from "@/components/module-status-select";
 import { TaskList, type TaskRow } from "./task-list";
 import { ModuleTaskBoard } from "@/components/module-task-board";
 import { DocumentList, type DocumentRow } from "./document-list";
+import { VersionList, type VersionRow } from "./version-list";
+import { ChangeOrderList } from "@/components/change-order-list";
+import { getChangeOrderRows, getModuleOptions } from "@/lib/change-orders";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -32,7 +35,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
   const objectives = mod.learningObjectives?.split("\n").filter(Boolean) ?? [];
   const script = await getScript(mod.id);
 
-  const [taskRecords, ownerRows, documentRecords] = await Promise.all([
+  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions] = await Promise.all([
     prisma.task.findMany({ where: { moduleId: mod.id }, orderBy: [{ dueDate: "asc" }, { order: "asc" }] }),
     prisma.task.findMany({
       where: { owner: { not: null } },
@@ -45,7 +48,24 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
       include: { addedBy: { select: { name: true, email: true } } },
       orderBy: { addedAt: "asc" },
     }),
+    prisma.moduleVersion.findMany({
+      where: { moduleId: mod.id },
+      orderBy: [{ releasedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }],
+    }),
+    // This module's change orders plus the ones that apply to every module
+    getChangeOrderRows({ OR: [{ moduleId: mod.id }, { moduleId: null }] }),
+    getModuleOptions(),
   ]);
+  const versions: VersionRow[] = versionRecords.map((v) => ({
+    id: v.id,
+    version: v.version,
+    platform: v.platform ?? "",
+    workspace: v.workspace ?? "",
+    experienceId: v.experienceId ?? "",
+    launchUrl: v.launchUrl ?? "",
+    releasedAt: v.releasedAt ? v.releasedAt.toISOString().slice(0, 10) : "",
+    notes: v.notes ?? "",
+  }));
   const documents: DocumentRow[] = documentRecords.map((d) => ({
     id: d.id,
     type: d.type,
@@ -165,6 +185,14 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
 
       <Section title="Documents">
         <DocumentList moduleId={mod.id} documents={documents} />
+      </Section>
+
+      <Section title="Versions">
+        <VersionList moduleId={mod.id} versions={versions} today={today} />
+      </Section>
+
+      <Section title="Change orders">
+        <ChangeOrderList items={changeOrders} modules={moduleOptions} today={today} defaultModuleId={mod.id} />
       </Section>
 
       <Section title="What it's about">

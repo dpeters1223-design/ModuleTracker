@@ -1,4 +1,17 @@
-import type { DocumentType, ModuleStatus, TaskPhase, TaskStatus } from "@prisma/client";
+import type { ChangeOrderStatus, DocumentType, ModuleStatus, TaskPhase, TaskStatus } from "@prisma/client";
+
+export const CHANGE_ORDER_STATUS_LABELS: Record<ChangeOrderStatus, string> = {
+  suggested: "Suggested",
+  approved: "Approved",
+  in_progress: "In progress",
+  in_review: "In review",
+  completed: "Completed",
+  deferred: "Deferred",
+  declined: "Declined",
+};
+
+/** Statuses that mean the change order needs no more work. */
+export const CLOSED_CHANGE_ORDER_STATUSES: ChangeOrderStatus[] = ["completed", "deferred", "declined"];
 
 /** Document types for the per-module library (scripts are managed on the Scripts tab). */
 export const DOCUMENT_TYPE_LABELS: Record<Exclude<DocumentType, "script">, string> = {

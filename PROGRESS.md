@@ -309,11 +309,18 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     local `AUTH_SECRET`) to GET signed-in pages and invoke Server Actions by id from
     `.next/dev/server/server-reference-manifest.json`, using temp modules that are deleted
     afterwards.
+  - **Board phase picker**: each board card has a "→ Phase" select (`setTaskPhase`).
+  - **Version history**: module page "Versions" section (`ModuleVersion`: version, released
+    date, platform, workspace, experience ID, launch link, notes); newest release = Current.
+  - **M7 Change orders**: top-level **Changes** tab (`/changes`) + module page section
+    (module's own + all-module entries). `ChangeOrderStatus` open vs closed
+    (`CLOSED_CHANGE_ORDER_STATUSES`), past-goal-date flag, "All modules" = null `moduleId`.
+  - All of the above **pushed/deployed 2026-09-23** at David's request.
 - [x] **M4 — Document Library** (see above).
+- [x] **M7 — Change Orders** (see above).
 - [x] **M5 — Tasks & Timeline** (see above).
 - [ ] **M6 — Discovery Form**: guided multi-step form (top-level questions, then repeatable
       "add a scene" blocks) writing to `Module` + `Scene`.
-- [ ] **M7 — Change Orders**: CRUD UI for `ChangeOrder` mirroring CNF's existing log schema.
 - [ ] **M8 — Real rollout**: add Tom/Ksenia/Jay to the allowlist, final QA pass.
 
 ## Repo layout (as of M0)

@@ -4,7 +4,7 @@ import { TASK_PHASE_LABELS } from "@/lib/labels";
 import { formatDay } from "@/lib/task-format";
 import { moduleTitle } from "@/lib/script-template";
 import { ModuleStatusSelect } from "@/components/module-status-select";
-import { TaskStatusSelect } from "@/components/task-status";
+import { TaskPhaseSelect, TaskStatusSelect } from "@/components/task-status";
 
 const PHASES = Object.keys(TASK_PHASE_LABELS) as TaskPhase[];
 
@@ -75,7 +75,10 @@ export function ModuleTaskBoard({
                           {late && <span className="ml-1 font-medium text-red-700 dark:text-red-400">Overdue</span>}
                         </p>
                       )}
-                      <TaskStatusSelect moduleId={t.moduleId} taskId={t.id} title={t.title} status={t.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <TaskStatusSelect moduleId={t.moduleId} taskId={t.id} title={t.title} status={t.status} />
+                        <TaskPhaseSelect moduleId={t.moduleId} taskId={t.id} title={t.title} phase={t.phase} />
+                      </div>
                     </li>
                   );
                 })}

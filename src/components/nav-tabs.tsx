@@ -7,6 +7,7 @@ const TABS = [
   { href: "/modules", label: "Modules" },
   { href: "/scripts", label: "Scripts" },
   { href: "/tasks", label: "Tasks" },
+  { href: "/changes", label: "Changes" },
 ];
 
 export function NavTabs() {

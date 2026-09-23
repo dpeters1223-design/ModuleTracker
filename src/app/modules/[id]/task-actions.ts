@@ -104,6 +104,22 @@ export async function setTaskStatus(
   return {};
 }
 
+/** Moves a task to another phase (the board's column picker). */
+export async function setTaskPhase(
+  moduleId: string,
+  taskId: string,
+  phase: string
+): Promise<TaskResult> {
+  await requireUser();
+  if (!(phase in TASK_PHASE_LABELS)) return { errors: ["Unknown phase."] };
+  await prisma.task.updateMany({
+    where: { id: taskId, moduleId },
+    data: { phase: phase as TaskPhase },
+  });
+  revalidatePath("/", "layout");
+  return {};
+}
+
 export async function deleteTask(moduleId: string, taskId: string): Promise<TaskResult> {
   await requireUser();
   await prisma.task.deleteMany({ where: { id: taskId, moduleId } });
