@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DiscoveryForm } from "./discovery-form";
+import { DiscoveryForm } from "@/components/discovery-form";
 
 export const metadata: Metadata = {
   title: "New module · Discovery Form · ModuleTracker",

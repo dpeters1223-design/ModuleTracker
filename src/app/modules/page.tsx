@@ -6,8 +6,9 @@ import { MODULE_STATUS_LABELS } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "Modules · ModuleTracker" };
 
-export default async function ModulesPage() {
+export default async function ModulesPage(props: PageProps<"/modules">) {
   await connection();
+  const { deleted } = await props.searchParams;
   const modules = await prisma.module.findMany({
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: { _count: { select: { scenes: true } } },
@@ -15,6 +16,14 @@ export default async function ModulesPage() {
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+      {deleted && (
+        <div
+          role="status"
+          className="mb-6 rounded-md border border-zinc-300 bg-white p-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
+        >
+          Module deleted.
+        </div>
+      )}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Modules</h1>
         <p className="text-zinc-600 dark:text-zinc-400">

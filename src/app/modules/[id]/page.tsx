@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getModule } from "@/lib/modules";
 import { getScript } from "@/lib/scripts";
-import { MODULE_STATUS_LABELS } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
+import { ModuleStatusSelect } from "@/components/module-status-select";
 import { TaskList, type TaskRow } from "./task-list";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -22,7 +22,7 @@ function Lines({ text }: { text: string | null }) {
 
 export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]">) {
   const { id } = await props.params;
-  const { submitted } = await props.searchParams;
+  const { submitted, saved } = await props.searchParams;
   const mod = await getModule(id);
   if (!mod) notFound();
 
@@ -65,6 +65,14 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
           </Link>
         </div>
       )}
+      {saved && (
+        <div
+          role="status"
+          className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200"
+        >
+          Changes saved.
+        </div>
+      )}
 
       <header className="space-y-2">
         <Link
@@ -73,14 +81,20 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
         >
           ← All modules
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {mod.number && <span className="text-zinc-500">{mod.number} · </span>}
-          {mod.name}
-        </h1>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-            {MODULE_STATUS_LABELS[mod.status]}
-          </span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {mod.number && <span className="text-zinc-500">{mod.number} · </span>}
+            {mod.name}
+          </h1>
+          <Link
+            href={`/modules/${mod.id}/edit`}
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Edit
+          </Link>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <ModuleStatusSelect moduleId={mod.id} status={mod.status} />
           {mod.audience && <span>Audience: {mod.audience}</span>}
           {mod.targetCompletion && <span>Target: {mod.targetCompletion}</span>}
           {mod.runtimeMinutes && <span>~{mod.runtimeMinutes} min</span>}

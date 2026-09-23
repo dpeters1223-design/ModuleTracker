@@ -1,5 +1,6 @@
 // Shared shape + validation for the SME Discovery Form. Imported by both the
 // client form and the server action, so it must stay free of server-only code.
+import type { Module, Scene } from "@prisma/client";
 
 export type DiscoveryTool = {
   name: string;
@@ -7,6 +8,8 @@ export type DiscoveryTool = {
 };
 
 export type DiscoveryScene = {
+  /** Set when editing a scene that already exists */
+  id?: string;
   title: string;
   location: string;
   mediaType: string;
@@ -54,6 +57,61 @@ export const emptyDiscovery = (): DiscoveryInput => ({
   scenes: [emptyScene()],
 });
 
+/**
+ * Turns a saved module back into form answers (for editing). Reverses how
+ * submitDiscovery stores lists: newline-joined objectives and tool names, and
+ * featuresDiscussed as "Tool:\nfeatures" blocks.
+ */
+export function moduleToDiscovery(mod: Module & { scenes: Scene[] }): DiscoveryInput {
+  const lines = (s: string | null) => (s ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const toolNames = lines(mod.toolsUsed);
+
+  // Walk featuresDiscussed, starting a new block at each "<known tool name>:" line.
+  const features = new Map<string, string[]>();
+  let current: string | null = null;
+  for (const line of (mod.featuresDiscussed ?? "").split("\n")) {
+    const header = toolNames.find((n) => line.trim() === `${n}:`);
+    if (header) {
+      current = header;
+      features.set(header, []);
+    } else if (current) {
+      features.get(current)!.push(line);
+    }
+  }
+
+  return {
+    name: mod.name,
+    number: mod.number ?? "",
+    description: mod.description ?? "",
+    audience: mod.audience ?? "",
+    targetCompletion: mod.targetCompletion ?? "",
+    runtimeMinutes: mod.runtimeMinutes?.toString() ?? "",
+    objectives: lines(mod.learningObjectives).length ? lines(mod.learningObjectives) : [""],
+    tools: toolNames.length
+      ? toolNames.map((name) => ({ name, features: (features.get(name) ?? []).join("\n").trim() }))
+      : [{ name: "", features: "" }],
+    scenes: mod.scenes.length
+      ? mod.scenes.map((s) => ({
+          id: s.id,
+          title: s.title ?? "",
+          location: s.location ?? "",
+          mediaType: s.backgroundMediaType ?? "",
+          speaker: s.speaker ?? "",
+          tool: s.toolUsed ?? "",
+          interaction: s.interactionHighlighted ?? "",
+          activities: s.activities ?? "",
+          notes: s.notes ?? "",
+        }))
+      : [emptyScene()],
+  };
+}
+
+/** A scene's text fields (everything but its id). */
+const sceneText = (s: DiscoveryScene) =>
+  Object.entries(s)
+    .filter(([key]) => key !== "id")
+    .map(([, value]) => value as string);
+
 const MAX_SHORT = 200;
 const MAX_LONG = 5000;
 const MAX_ITEMS = 100;
@@ -79,6 +137,7 @@ export function cleanDiscovery(input: DiscoveryInput): {
       .filter((tool) => tool.name || tool.features),
     scenes: (input.scenes ?? [])
       .map((s) => ({
+        ...(typeof s?.id === "string" && /^\w{1,40}$/.test(s.id) ? { id: s.id } : {}),
         title: t(s?.title),
         location: t(s?.location),
         mediaType: t(s?.mediaType),
@@ -88,7 +147,7 @@ export function cleanDiscovery(input: DiscoveryInput): {
         activities: t(s?.activities),
         notes: t(s?.notes),
       }))
-      .filter((s) => Object.values(s).some(Boolean)),
+      .filter((s) => sceneText(s).some(Boolean)),
   };
 
   if (!data.name) errors.push("Module name is required.");
@@ -105,7 +164,7 @@ export function cleanDiscovery(input: DiscoveryInput): {
     data.description,
     ...data.objectives,
     ...data.tools.flatMap((tool) => [tool.name, tool.features]),
-    ...data.scenes.flatMap((s) => Object.values(s)),
+    ...data.scenes.flatMap(sceneText),
   ];
   if (
     shortFields.some((s) => s.length > MAX_SHORT) ||

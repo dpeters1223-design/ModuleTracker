@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
-import { submitDiscovery } from "../actions";
+import { submitDiscovery, updateDiscovery } from "@/app/discovery/actions";
 import {
   cleanDiscovery,
   emptyDiscovery,
@@ -52,30 +53,35 @@ function loadDraft(): DiscoveryInput {
 
 const noopSubscribe = () => () => {};
 
-// The draft lives in localStorage, which the server can't see — so render the
-// form only in the browser, where it can start from the saved draft directly.
-export function DiscoveryForm() {
+/** Edit mode: start from a module's saved answers and save back to it. */
+export type DiscoveryEdit = { moduleId: string; initial: DiscoveryInput };
+
+// A new-module draft lives in localStorage, which the server can't see — so
+// render the form only in the browser, where it can start from the draft directly.
+export function DiscoveryForm({ edit }: { edit?: DiscoveryEdit }) {
   const isClient = useSyncExternalStore(
     noopSubscribe,
     () => true,
     () => false
   );
   if (!isClient) return <p className="text-sm text-zinc-500">Loading form…</p>;
-  return <DiscoveryFormInner />;
+  return <DiscoveryFormInner edit={edit} />;
 }
 
-function DiscoveryFormInner() {
-  const [form, setForm] = useState<DiscoveryInput>(loadDraft);
+function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
+  const [form, setForm] = useState<DiscoveryInput>(() => edit?.initial ?? loadDraft());
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
-  // Persist a local draft so a long form survives a refresh or closed tab.
+  // Persist a local draft so a long new-module form survives a refresh or closed
+  // tab. Edits start from the saved module instead, so they skip this.
   useEffect(() => {
+    if (edit) return;
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(form));
     } catch {}
-  }, [form]);
+  }, [form, edit]);
 
   const set = <K extends keyof DiscoveryInput>(key: K, value: DiscoveryInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -118,6 +124,11 @@ function DiscoveryFormInner() {
     const { errors: clientErrors } = cleanDiscovery(form);
     if (clientErrors.length) return setErrors(clientErrors);
     startTransition(async () => {
+      if (edit) {
+        const result = await updateDiscovery(edit.moduleId, form);
+        if (result?.errors.length) setErrors(result.errors);
+        return;
+      }
       // On success the action redirects (unmounting this form), so clear the draft
       // up front and put it back if the server returns errors instead.
       try {
@@ -151,7 +162,7 @@ function DiscoveryFormInner() {
             <button
               type="button"
               onClick={() => {
-                if (i < step || (form.name.trim() && form.description.trim())) setStep(i);
+                if (edit || i < step || (form.name.trim() && form.description.trim())) setStep(i);
               }}
               className={`rounded-full px-3 py-1 text-xs font-medium ${
                 i === step
@@ -533,7 +544,9 @@ function DiscoveryFormInner() {
               </dd>
             </dl>
             <p className="text-sm text-zinc-500">
-              Submitting creates the module. Scenes and details can be filled in further later.
+              {edit
+                ? "Saving updates the module. Scenes you removed are deleted; the script document isn't changed."
+                : "Submitting creates the module. Scenes and details can be filled in further later."}
             </p>
           </>
         )}
@@ -546,9 +559,15 @@ function DiscoveryFormInner() {
               Back
             </button>
           )}
-          <button type="button" className={linkBtn} onClick={resetDraft} disabled={pending}>
-            Clear form
-          </button>
+          {edit ? (
+            <Link href={`/modules/${edit.moduleId}`} className={`${linkBtn} self-center`}>
+              Cancel
+            </Link>
+          ) : (
+            <button type="button" className={linkBtn} onClick={resetDraft} disabled={pending}>
+              Clear form
+            </button>
+          )}
         </div>
         {step < STEPS.length - 1 ? (
           <button type="button" className={primaryBtn} onClick={goNext}>
@@ -556,11 +575,13 @@ function DiscoveryFormInner() {
           </button>
         ) : (
           <button type="button" className={primaryBtn} onClick={submit} disabled={pending}>
-            {pending ? "Submitting…" : "Submit"}
+            {pending ? "Saving…" : edit ? "Save changes" : "Submit"}
           </button>
         )}
       </div>
-      <p className="text-xs text-zinc-400">Your progress is saved in this browser as you type.</p>
+      {!edit && (
+        <p className="text-xs text-zinc-400">Your progress is saved in this browser as you type.</p>
+      )}
     </div>
   );
 }
