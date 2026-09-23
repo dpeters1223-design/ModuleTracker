@@ -43,6 +43,7 @@ Decided with the project owner (David) on 2026-09-22:
 | Document library depth | Plain link fields only for v1 (no Google Picker, no Drive API sync) | Cheapest to ship; revisit only if plain links prove insufficient. |
 | ORM | Prisma | Prisma Studio doubles as a spreadsheet-like data browser, which suits a team coming from spreadsheets. |
 | UI | Tailwind CSS + shadcn/ui | Fast to build a clean internal dashboard without custom design work. |
+| Existing data | **No import.** Start empty; first real modules are PVD1/PVD2 entered in the app. No historical modules, tasks or change orders. (Decided 2026-09-23.) | David wants a standalone, general-purpose tracker — not one shaped around CNF's existing module list. Schema and UI must not hardcode any organization's modules. |
 
 Full original plan (context/rationale in more detail) is also saved at
 `C:\Users\David\.claude\plans\eventual-munching-sutherland.md` on David's machine, but treat
@@ -204,18 +205,45 @@ The docs themselves stay out of the repo; this is the summary that matters for t
         dev server afterward (killed the process holding port 3000).
   - [x] Confirmed `/api/health` from the deployed Vercel URL (2026-09-23):
         `https://vr-module-tracker.vercel.app/api/health` → `{"ok":true,"moduleCount":0}`.
-  - [ ] Seed script for the 24-module roadmap (see M3 — may land here or there depending on
-        sequencing when we get to it)
+  - [~] Second migration `20260923180000_generic_schema` (written, **not yet applied**):
+        adds `on_hold` module status and reorders statuses into pipeline order (hand-edited
+        SQL, since Prisma won't reorder enums); task status `delayed` (drops unused `blocked`);
+        `ChangeOrderStatus` enum; change orders can apply to all modules (`moduleId` nullable);
+        new `ModuleVersion` table (replaces `Module.experienceId`/`launchUrl`); Module gains
+        `audience`, `keyConcepts`, `sizeMb`, optional `number`; Scene gains `description`,
+        `learningObjectives`, `activities`, `mediaAssets`; generic names (`folder` doc type,
+        `build` phase). Apply with `npx.cmd prisma migrate deploy`. Note `migrate dev` refuses
+        to run in Claude's non-interactive shell; generate SQL with `prisma migrate diff
+        --from-config-datasource --to-schema prisma/schema.prisma --script` instead.
+  - ~~Seed script~~ — dropped, see "Existing data" decision above.
   - Side note: `next dev` auto-generated `AGENTS.md` and a `CLAUDE.md` that just imports it
     (`@AGENTS.md`) — a new Next.js 16 feature (`agentRules`, see `next.config.ts`) that warns
     AI agents this Next version has breaking changes vs. older training data and to check
     `node_modules/next/dist/docs/` before assuming old APIs still apply. Kept and committed
     per its own instructions (it says committing keeps the tree clean; deleting it just makes
     `next dev` regenerate it as an uncommitted diff again).
+- [~] **Discovery Form prototype (M6 pulled forward — David wants it as the first usable
+      feature, 2026-09-23).** Built and tested locally, **not yet committed/pushed**:
+  - `/discovery/new`: 5-step client form (About → Learning objectives → Tools + features →
+    Scenes → Review) in `src/app/discovery/new/discovery-form.tsx`. Repeatable objectives, tools
+    and scenes (add/remove/reorder); scene tool/speaker fields autocomplete from earlier entries.
+    Draft autosaves to `localStorage` (form renders client-only for that reason).
+  - `submitDiscovery` Server Action (`src/app/discovery/actions.ts`) → creates `Module`
+    (status `pre_production`) + `Scene`s in one nested create, redirects to the module page.
+    Shared trim/validate logic in `src/lib/discovery.ts` runs on both client and server.
+    Storage: objectives and tool names are newline-joined strings; `featuresDiscussed` is
+    `"Tool:\nfeatures"` blocks separated by blank lines.
+  - `/modules/[id]` read-only module page; `/` module list with an empty state; header nav.
+  - Verified: lint + build pass; posted valid/invalid payloads to the action on `next dev`
+    (redirect on success, field errors on failure), confirmed DB rows, deleted test data.
+  - **Temporary password gate** (`src/proxy.ts`, Next 16's renamed middleware): HTTP Basic
+    auth, any username + `SITE_PASSWORD` env var (set in Vercel, Production). Fails closed
+    (503) if unset in production; open in local `next dev` when unset. Added 2026-09-23 so
+    David could demo online before M2. **Delete `src/proxy.ts` when Google sign-in lands.**
+  - Not built yet: editing a submitted module/scenes.
 - [ ] **M2 — Auth**: Auth.js + Google provider, email allowlist via env var, gate all routes.
-- [ ] **M3 — Modules**: seed script (24-module roadmap from CNF's "Toms VR list" spreadsheet
-      data, already extracted once this session — see note below) + dashboard list page +
-      module detail page (read-only).
+- [ ] **M3 — Modules**: dashboard list page + create/edit module + module detail page
+      (no seed data — modules are entered in the app).
 - [ ] **M4 — Document Library**: CRUD UI for `DocumentLink`, grouped by type, on the module
       detail page.
 - [ ] **M5 — Tasks & Timeline**: CRUD UI for `Task` per module (table grouped by phase) —
@@ -261,11 +289,14 @@ anywhere permanent — if deeper domain detail is needed again, re-run the same 
 ## Next action for a fresh session
 
 Pick up at the first unchecked box under **Build sequence & status** above. As of 2026-09-23
-that's the M1 seed script / M2 auth. Before seeding, review the schema against the real CNF data
-(task statuses like "Delayed"/"Upcoming", module statuses like "Back-burner"/"Next up", per-scene
-storyboard fields, version/experience-ID history) — the source docs don't fit the current enums
-exactly.
+the `generic_schema` migration is applied and the Discovery Form prototype is built locally
+(see above); next is committing it, then M2 auth before deploying, then editing submissions. The CNF source-doc findings above
+informed field choices only; no data from them is imported.
 
 **Dev machines:** David works from more than one Windows machine. On the Cornell-managed one the
 repo lives at `C:\Users\dpp49\ModuleTracker` (folders under `C:\` root are admin-only there), and
 the CNF source docs are under OneDrive `Documents\CNF Docs` rather than `D:\CNF Docs`.
+On that machine Node isn't on PATH (`$env:Path = "C:\Program Files\nodejs;$env:Path"`) and
+PowerShell blocks `npx.ps1`, so use `npx.cmd` / `npm.cmd`. Its `.env.local` was set up
+2026-09-23 (only `DATABASE_URL` + `DATABASE_URL_UNPOOLED` filled in by hand; the other
+`[SENSITIVE]` placeholders are unused by the app).
