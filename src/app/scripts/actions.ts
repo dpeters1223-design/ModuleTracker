@@ -8,24 +8,21 @@ import {
   createFolder,
   DriveError,
   driveIdFromUrl,
+  findOrCreateRootFolder,
+  getDriveOwnerToken,
   getFileMeta,
-  getGoogleAccessToken,
   shareWithEditors,
 } from "@/lib/google-drive";
 import { buildScriptHtml, moduleTitle } from "@/lib/script-template";
+
+// Every Drive call here runs as the Drive owner (DRIVE_OWNER_EMAIL), not the
+// person clicking, so all scripts end up in one Drive under one person's control.
 
 export type ScriptActionResult = { error?: string; warning?: string };
 
 type User = Awaited<ReturnType<typeof requireUser>>;
 
-async function driveToken(user: User) {
-  if (!user.driveGranted) {
-    throw new DriveError(
-      "Drive access wasn't granted at sign-in. Sign out, sign back in, and tick the Google Drive box."
-    );
-  }
-  return getGoogleAccessToken(user.id);
-}
+const ROOT_FOLDER_NAME = "ModuleTracker Scripts";
 
 async function assertNoScript(moduleId: string) {
   const existing = await prisma.documentLink.findFirst({ where: { moduleId, type: "script" } });
@@ -33,36 +30,36 @@ async function assertNoScript(moduleId: string) {
 }
 
 /**
- * Returns the module's Drive folder, creating it (and sharing it with the rest
- * of the team) on first use. Falls back to the user's My Drive root if the
- * stored folder isn't reachable with this user's token.
+ * Shares the owner's root scripts folder with everyone on ALLOWED_EMAILS — only
+ * when SHARE_SCRIPTS_WITH_TEAM=true (off until launch). Runs on every create, so
+ * people added to the list later still get access to all scripts.
  */
-async function ensureFolder(token: string, user: User, moduleId: string) {
-  const mod = await prisma.module.findUniqueOrThrow({ where: { id: moduleId } });
-  if (mod.driveFolderId) {
-    const meta = await getFileMeta(token, mod.driveFolderId);
-    if (meta && !meta.trashed) return { folderId: mod.driveFolderId, warning: undefined };
-    return {
-      folderId: undefined,
-      warning:
-        "The module's Drive folder isn't accessible to your account, so the file was created in your My Drive instead.",
-    };
-  }
-
-  const folder = await createFolder(token, moduleTitle(mod));
-  await prisma.module.update({ where: { id: moduleId }, data: { driveFolderId: folder.id } });
-
+async function shareRootWithTeam(token: string, rootId: string) {
+  if (process.env.SHARE_SCRIPTS_WITH_TEAM !== "true") return undefined;
+  const owner = process.env.DRIVE_OWNER_EMAIL?.trim().toLowerCase();
   const team = (process.env.ALLOWED_EMAILS ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
-    .filter((e) => e && e !== user.email.toLowerCase());
-  const failed = await shareWithEditors(token, folder.id, team);
-  return {
-    folderId: folder.id,
-    warning: failed.length
-      ? `Couldn't share the module folder with: ${failed.join(", ")}. Share it from Google Drive.`
-      : undefined,
-  };
+    .filter((e) => e && e !== owner);
+  const failed = await shareWithEditors(token, rootId, team);
+  return failed.length
+    ? `Couldn't share the scripts folder with: ${failed.join(", ")}. Share "${ROOT_FOLDER_NAME}" from Google Drive.`
+    : undefined;
+}
+
+/** Returns the module's folder inside the owner's root scripts folder, creating either on first use. */
+async function ensureFolder(token: string, moduleId: string) {
+  const root = await findOrCreateRootFolder(token, ROOT_FOLDER_NAME);
+  const warning = await shareRootWithTeam(token, root.id);
+
+  const mod = await prisma.module.findUniqueOrThrow({ where: { id: moduleId } });
+  if (mod.driveFolderId) {
+    const meta = await getFileMeta(token, mod.driveFolderId);
+    if (meta && !meta.trashed) return { folderId: mod.driveFolderId, warning };
+  }
+  const folder = await createFolder(token, moduleTitle(mod), root.id);
+  await prisma.module.update({ where: { id: moduleId }, data: { driveFolderId: folder.id } });
+  return { folderId: folder.id, warning };
 }
 
 async function saveScriptLink(
@@ -90,13 +87,13 @@ export async function startScript(moduleId: string): Promise<ScriptActionResult>
   return run(async () => {
     const user = await requireUser();
     await assertNoScript(moduleId);
-    const token = await driveToken(user);
+    const token = await getDriveOwnerToken();
 
     const mod = await prisma.module.findUniqueOrThrow({
       where: { id: moduleId },
       include: { scenes: { orderBy: { order: "asc" } } },
     });
-    const { folderId, warning } = await ensureFolder(token, user, moduleId);
+    const { folderId, warning } = await ensureFolder(token, moduleId);
     const name = `${moduleTitle(mod)} – Script`;
     const doc = await createDocFromHtml(token, {
       name,
@@ -111,17 +108,19 @@ export async function startScript(moduleId: string): Promise<ScriptActionResult>
 /**
  * First half of a Word-file import: the browser uploads the file straight to
  * Drive (Vercel caps request bodies at ~4.5 MB, too small for docs with images),
- * so hand it a short-lived, drive.file-scoped token and the destination folder.
+ * so hand it a short-lived (1 hour), drive.file-scoped owner token and the
+ * destination folder. drive.file limits the token to files this app created —
+ * the scripts, which everyone signed in can already edit.
  */
 export async function prepareScriptUpload(moduleId: string): Promise<
   ScriptActionResult & { accessToken?: string; folderId?: string; name?: string }
 > {
   try {
-    const user = await requireUser();
+    await requireUser();
     await assertNoScript(moduleId);
-    const token = await driveToken(user);
+    const token = await getDriveOwnerToken();
     const mod = await prisma.module.findUniqueOrThrow({ where: { id: moduleId } });
-    const { folderId, warning } = await ensureFolder(token, user, moduleId);
+    const { folderId, warning } = await ensureFolder(token, moduleId);
     return { accessToken: token, folderId, name: `${moduleTitle(mod)} – Script`, warning };
   } catch (e) {
     if (e instanceof DriveError) return { error: e.message };
@@ -137,7 +136,7 @@ export async function registerUploadedScript(
   return run(async () => {
     const user = await requireUser();
     await assertNoScript(moduleId);
-    const meta = await getFileMeta(await driveToken(user), fileId);
+    const meta = await getFileMeta(await getDriveOwnerToken(), fileId);
     if (!meta) throw new DriveError("The uploaded file couldn't be found in Google Drive.");
     await saveScriptLink(user, moduleId, {
       url: meta.webViewLink,
@@ -167,12 +166,11 @@ export async function linkExistingScript(
     // Metadata (name, last edit) is only readable for files this app has opened.
     // Best-effort: a Drive hiccup shouldn't block saving a plain link.
     const fileId = driveIdFromUrl(url.href);
-    const meta =
-      fileId && user.driveGranted
-        ? await getGoogleAccessToken(user.id)
-            .then((token) => getFileMeta(token, fileId))
-            .catch(() => null)
-        : null;
+    const meta = fileId
+      ? await getDriveOwnerToken()
+          .then((token) => getFileMeta(token, fileId))
+          .catch(() => null)
+      : null;
     await saveScriptLink(user, moduleId, {
       url: url.href,
       label: meta?.name ?? "Script",

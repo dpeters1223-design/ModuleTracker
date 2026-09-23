@@ -1,6 +1,5 @@
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getFileMeta, getGoogleAccessToken } from "@/lib/google-drive";
+import { getDriveOwnerToken, getFileMeta } from "@/lib/google-drive";
 
 export type ScriptInfo = {
   id: string;
@@ -10,23 +9,19 @@ export type ScriptInfo = {
   lastEditedBy: string | null;
 };
 
-/** The viewer's Drive token, or null if they can't read Drive metadata right now. */
-async function viewerDriveToken(): Promise<string | null> {
-  const session = await auth();
-  if (!session?.user?.id || !session.driveGranted) return null;
-  return getGoogleAccessToken(session.user.id).catch(() => null);
-}
-
 /**
- * Script link per module id, with live "last edited" info from Drive where the
- * viewer's token can see the file. Modules without a script are absent.
+ * Script link per module id, with live "last edited" info read through the
+ * Drive owner's account (so every viewer sees the same thing). Modules without
+ * a script are absent.
  */
 export async function getScripts(moduleIds: string[]): Promise<Map<string, ScriptInfo>> {
   const links = await prisma.documentLink.findMany({
     where: { moduleId: { in: moduleIds }, type: "script" },
     orderBy: { addedAt: "desc" },
   });
-  const token = links.some((l) => l.driveFileId) ? await viewerDriveToken() : null;
+  const token = links.some((l) => l.driveFileId)
+    ? await getDriveOwnerToken().catch(() => null)
+    : null;
 
   const result = new Map<string, ScriptInfo>();
   await Promise.all(

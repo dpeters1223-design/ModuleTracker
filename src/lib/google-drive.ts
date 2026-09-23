@@ -9,6 +9,28 @@ export class DriveError extends Error {}
 const RECONNECT =
   "Google Drive isn't connected. Sign out, sign back in, and allow Drive access when Google asks.";
 
+/**
+ * All scripts live in one account's Drive (DRIVE_OWNER_EMAIL), whoever clicks
+ * the button, so a single person controls them. Returns that account's token.
+ */
+export async function getDriveOwnerToken(): Promise<string> {
+  const email = process.env.DRIVE_OWNER_EMAIL?.trim().toLowerCase();
+  if (!email) throw new DriveError("DRIVE_OWNER_EMAIL isn't configured on the server.");
+  const owner = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (!owner) {
+    throw new DriveError(
+      `The Drive owner (${email}) needs to sign in to ModuleTracker once to connect their Google Drive.`
+    );
+  }
+  try {
+    return await getGoogleAccessToken(owner.id);
+  } catch {
+    throw new DriveError(
+      `The Drive owner's Google connection has expired. ${email} needs to sign out and back in.`
+    );
+  }
+}
+
 export async function getGoogleAccessToken(userId: string): Promise<string> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -69,12 +91,29 @@ export type DriveFileMeta = DriveFile & {
   trashed: boolean;
 };
 
-export async function createFolder(token: string, name: string): Promise<DriveFile> {
+export async function createFolder(
+  token: string,
+  name: string,
+  parentId?: string
+): Promise<DriveFile> {
   return driveFetch(token, `${API}/files?fields=id,name,webViewLink`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, mimeType: FOLDER_MIME }),
+    body: JSON.stringify({ name, mimeType: FOLDER_MIME, ...(parentId ? { parents: [parentId] } : {}) }),
   });
+}
+
+/**
+ * Finds a top-level folder with this name that this app created (drive.file only
+ * lists the app's own files), or creates it.
+ */
+export async function findOrCreateRootFolder(token: string, name: string): Promise<DriveFile> {
+  const q = `name = '${name.replace(/'/g, "\\'")}' and mimeType = '${FOLDER_MIME}' and 'root' in parents and trashed = false`;
+  const found = await driveFetch<{ files: DriveFile[] }>(
+    token,
+    `${API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,webViewLink)&pageSize=1`
+  );
+  return found.files[0] ?? createFolder(token, name);
 }
 
 /** Uploads HTML and lets Drive convert it into a Google Doc. */

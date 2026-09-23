@@ -248,13 +248,13 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     the temporary `SITE_PASSWORD` basic-auth gate is gone (env var can be deleted in Vercel).
     Server Actions re-check with `requireUser()` (`src/lib/session.ts`).
   - Env needed (local `.env.local` + Vercel Production): `AUTH_SECRET` (local one generated;
-    Vercel already has one), `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ALLOWED_EMAILS`.
-  - Google Cloud project is owned by David's personal Google account; consent screen External,
-    Testing mode (test users must be added; refresh tokens expire after 7 days in Testing).
+    Vercel already has one), `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ALLOWED_EMAILS`,
+    `DRIVE_OWNER_EMAIL`, `SHARE_SCRIPTS_WITH_TEAM` (`false` until launch).
+  - Google Cloud project: Cornell-owned, Internal consent screen (see Scripts section).
     Redirect URIs: `http://localhost:3000/api/auth/callback/google`,
     `https://vr-module-tracker.vercel.app/api/auth/callback/google`.
-  - **Open risk:** Cornell Google Workspace may block third-party apps' Drive access for
-    Cornell accounts. Test with Tom's account early.
+  - Verified locally 2026-09-23: David signed in with Cornell account, tokens stored,
+    "Start script" created folder + Doc and linked it.
 - [~] **Scripts via Google Drive** (David chose "Option 2 + import", 2026-09-23; code done,
       untested against real Google):
   - Module page "Script" panel (`src/app/modules/[id]/script-panel.tsx`, actions in
@@ -266,6 +266,24 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     **Link an existing doc** (any https URL; metadata only if the app can see the file), and
     Unlink. Shows live "last edited by/when" from Drive.
   - Drive REST calls via `fetch` in `src/lib/google-drive.ts` (no googleapis dependency).
+  - **Ownership (decided 2026-09-23): everything lives in ONE account's Drive**, set by
+    `DRIVE_OWNER_EMAIL` (David's Cornell account now; to move to Jay later, change the env
+    var and have Jay sign in once — existing files stay in David's Drive unless ownership is
+    transferred in Drive). All Drive calls run with the owner's stored token
+    (`getDriveOwnerToken()`), whoever clicks. Layout: owner's My Drive → "ModuleTracker
+    Scripts" → one folder per module → script Doc. The owner must have signed in once.
+  - Sharing: when `SHARE_SCRIPTS_WITH_TEAM=true`, the root folder is (re)shared with
+    `ALLOWED_EMAILS` as editors on every create (no notification emails). **Off until David
+    launches** (he doesn't want the team to see anything yet). Ksenia to be added at launch.
+  - A team Shared Drive was proposed and declined in favor of the single-owner model.
+  - Test module "tht" was created under the earlier per-clicker code: its folder sits in
+    David's My Drive root (not under "ModuleTracker Scripts") and was shared with the two
+    other allowlisted emails. Delete it before launch.
+  - Nav (2026-09-23): top-level **Modules** (`/modules`) and **Scripts** (`/scripts`, one
+    row per module; `/scripts/[moduleId]` has the panel) tabs + "New module" button.
+  - Google Cloud project/OAuth client is owned by David's **Cornell** account in the
+    cornell.edu org, consent screen **Internal** (only Cornell accounts can sign in; no
+    test-user list, no 7-day token expiry). Chosen so Cornell teammates aren't blocked.
   - Script = a `DocumentLink` with `type: script` + `driveFileId`; folder id on
     `Module.driveFolderId` (migration `20260923200000_google_drive_fields`, applied).
 - [ ] **M3 — Modules**: dashboard list page + create/edit module + module detail page
