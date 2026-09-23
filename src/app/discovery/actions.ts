@@ -50,6 +50,6 @@ export async function submitDiscovery(input: DiscoveryInput): Promise<DiscoveryR
     select: { id: true },
   });
 
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   redirect(`/modules/${mod.id}?submitted=1`);
 }

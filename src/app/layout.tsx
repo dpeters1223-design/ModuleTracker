@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import { auth, signOut } from "@/auth";
+import { NavTabs } from "@/components/nav-tabs";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,16 +31,22 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100">
         <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-          <nav className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-3 sm:px-6">
-            <Link href="/" className="font-semibold tracking-tight">
-              ModuleTracker
-            </Link>
+          <nav className="mx-auto flex h-14 w-full max-w-4xl items-stretch justify-between gap-6 px-4 sm:px-6">
+            <div className="flex items-stretch gap-8">
+              <Link href="/" className="flex items-center font-semibold tracking-tight">
+                ModuleTracker
+              </Link>
+              {session?.user && <NavTabs />}
+            </div>
             {session?.user && (
               <div className="flex items-center gap-4">
-                <Link href="/discovery/new" className={navLink}>
-                  Discovery Form
+                <Link
+                  href="/discovery/new"
+                  className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                >
+                  + New module
                 </Link>
-                <span className="hidden text-sm text-zinc-400 sm:inline">{session.user.email}</span>
+                <span className="hidden text-sm text-zinc-400 md:inline">{session.user.email}</span>
                 <form
                   action={async () => {
                     "use server";

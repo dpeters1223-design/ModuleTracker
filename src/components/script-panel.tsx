@@ -8,15 +8,8 @@ import {
   startScript,
   unlinkScript,
   type ScriptActionResult,
-} from "./script-actions";
-
-export type ScriptInfo = {
-  id: string;
-  url: string;
-  label: string | null;
-  lastEdited: string | null;
-  lastEditedBy: string | null;
-};
+} from "@/app/scripts/actions";
+import type { ScriptInfo } from "@/lib/scripts";
 
 const GOOGLE_DOC_MIME = "application/vnd.google-apps.document";
 const btn =

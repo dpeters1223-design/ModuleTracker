@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getModule } from "@/lib/modules";
+import { getScript } from "@/lib/scripts";
+import { MODULE_STATUS_LABELS } from "@/lib/labels";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -22,18 +25,59 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
   if (!mod) notFound();
 
   const objectives = mod.learningObjectives?.split("\n").filter(Boolean) ?? [];
+  const script = await getScript(mod.id);
 
   return (
-    <div className="space-y-8">
+    <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8 sm:px-6">
       {submitted && (
         <div
           role="status"
           className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200"
         >
-          Discovery Form submitted. The module has been created. Next, start its script from the
-          Script tab.
+          Discovery Form submitted. The module has been created.{" "}
+          <Link href={`/scripts/${mod.id}`} className="font-medium underline underline-offset-4">
+            Start its script →
+          </Link>
         </div>
       )}
+
+      <header className="space-y-2">
+        <Link
+          href="/modules"
+          className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+        >
+          ← All modules
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {mod.number && <span className="text-zinc-500">{mod.number} · </span>}
+          {mod.name}
+        </h1>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+            {MODULE_STATUS_LABELS[mod.status]}
+          </span>
+          {mod.audience && <span>Audience: {mod.audience}</span>}
+          {mod.targetCompletion && <span>Target: {mod.targetCompletion}</span>}
+          {mod.runtimeMinutes && <span>~{mod.runtimeMinutes} min</span>}
+        </div>
+      </header>
+
+      <Link
+        href={`/scripts/${mod.id}`}
+        className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+      >
+        <span>
+          <span className="font-medium">Script: </span>
+          {script
+            ? script.lastEdited
+              ? `last edited ${new Date(script.lastEdited).toLocaleDateString()}${
+                  script.lastEditedBy ? ` by ${script.lastEditedBy}` : ""
+                }`
+              : "linked"
+            : "not started"}
+        </span>
+        <span className="text-zinc-500">{script ? "Open →" : "Start →"}</span>
+      </Link>
 
       <Section title="What it's about">
         <Lines text={mod.description} />
@@ -96,6 +140,6 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
           ))}
         </ol>
       </Section>
-    </div>
+    </main>
   );
 }
