@@ -316,6 +316,27 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     (module's own + all-module entries). `ChangeOrderStatus` open vs closed
     (`CLOSED_CHANGE_ORDER_STATUSES`), past-goal-date flag, "All modules" = null `moduleId`.
   - All of the above **pushed/deployed 2026-09-23** at David's request.
+- [x] **Team meeting round 1 (built + deployed 2026-09-24):** lab palette as Tailwind theme
+      colors (`--color-brand` navy #3d5062, `gold` #fddb93, `teal` #76ada9, `lab-red`
+      #b31b1b, sampled from the Creative Technology Lab logo; colors only, no lab name/logo in
+      the chrome); per-phase colors (`src/lib/phase-colors.ts`); board columns with dnd-kit
+      drag-and-drop (optimistic, touch = press-and-hold), "+" quick-add per column, ~3 cards
+      visible then scroll; module status prerequisites = **warn with "Move anyway"** (not a
+      hard block) when earlier-phase tasks are open (`setModuleStatus(..., force)`).
+- [ ] **Team meeting backlog (not started — David said hold):**
+  - **Gantt chart** (Becky): tasks as bars start→due, colored by phase. Open question: one
+    chart for all modules, per module, or both.
+  - **"Weekly" tasks** (Jay): meaning unconfirmed: week view vs. phase task templates spaced
+    weekly vs. recurring weekly tasks.
+  - **Backups** (David): plan proposed = change-history table + full JSON snapshot to a
+    private Drive "ModuleTracker Backups" folder after changes (latest + daily for 30 days,
+    via Next `after()`) + a restore script. Open: whose Drive, retention.
+- [ ] **Jay as Drive owner (on hold until Jay confirms the test script):** code now uses
+      `SHARE_SCRIPTS_WITH` (explicit email list; replaced `SHARE_SCRIPTS_WITH_TEAM`). Local
+      `.env.local` already has `DRIVE_OWNER_EMAIL=jgw226@cornell.edu` and
+      `SHARE_SCRIPTS_WITH=dpp49@cornell.edu`; Vercel still has David as owner. To finish: set
+      both in Vercel, remove `SHARE_SCRIPTS_WITH_TEAM` there, redeploy; then delete module
+      "TEST – Script setup check" (and its folder in Jay's Drive if wanted).
 - [x] **M4 — Document Library** (see above).
 - [x] **M7 — Change Orders** (see above).
 - [x] **M5 — Tasks & Timeline** (see above).
