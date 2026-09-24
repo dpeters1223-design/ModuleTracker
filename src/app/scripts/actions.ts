@@ -30,18 +30,18 @@ async function assertNoScript(moduleId: string) {
 }
 
 /**
- * Shares the owner's root scripts folder with everyone on ALLOWED_EMAILS — only
- * when SHARE_SCRIPTS_WITH_TEAM=true (off until launch). Runs on every create, so
- * people added to the list later still get access to all scripts.
+ * Shares the owner's root scripts folder (and so every script in it) with the
+ * emails in SHARE_SCRIPTS_WITH, as editors, without notification emails. Runs on
+ * every create, so people added to the list later still get access to all scripts.
  */
 async function shareRootWithTeam(token: string, rootId: string) {
-  if (process.env.SHARE_SCRIPTS_WITH_TEAM !== "true") return undefined;
   const owner = process.env.DRIVE_OWNER_EMAIL?.trim().toLowerCase();
-  const team = (process.env.ALLOWED_EMAILS ?? "")
+  const people = (process.env.SHARE_SCRIPTS_WITH ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter((e) => e && e !== owner);
-  const failed = await shareWithEditors(token, rootId, team);
+  if (!people.length) return undefined;
+  const failed = await shareWithEditors(token, rootId, people);
   return failed.length
     ? `Couldn't share the scripts folder with: ${failed.join(", ")}. Share "${ROOT_FOLDER_NAME}" from Google Drive.`
     : undefined;
