@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, TaskPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { TASK_PHASE_LABELS } from "@/lib/labels";
 import { moduleTitle } from "@/lib/script-template";
@@ -14,6 +14,12 @@ export const metadata: Metadata = { title: "Tasks · ModuleTracker" };
 const selectCls =
   "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 
+const DUE_FILTERS = {
+  overdue: "Overdue",
+  week: "Due this week",
+  next: "Due next week",
+} as const;
+
 const addDays = (day: string, n: number) =>
   new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
@@ -23,11 +29,27 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
   const owner = typeof sp.owner === "string" ? sp.owner : "";
   const moduleId = typeof sp.module === "string" ? sp.module : "";
   const includeDone = sp.done === "1";
+  const phase = typeof sp.phase === "string" && sp.phase in TASK_PHASE_LABELS ? (sp.phase as TaskPhase) : "";
+  const due = typeof sp.due === "string" && sp.due in DUE_FILTERS ? (sp.due as keyof typeof DUE_FILTERS) : "";
+
+  // Weeks run Monday–Sunday. Dates are calendar days stored at noon UTC.
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = addDays(today, -((new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7));
+  const noon = (d: string) => new Date(`${d}T12:00:00Z`);
+  const dueRange: Record<keyof typeof DUE_FILTERS, Prisma.TaskWhereInput> = {
+    overdue: { dueDate: { lt: noon(today) }, status: { not: "completed" } },
+    week: { dueDate: { gte: noon(weekStart), lte: noon(addDays(weekStart, 6)) } },
+    next: { dueDate: { gte: noon(addDays(weekStart, 7)), lte: noon(addDays(weekStart, 13)) } },
+  };
 
   const where: Prisma.TaskWhereInput = {
-    ...(owner ? { owner } : {}),
-    ...(moduleId ? { moduleId } : {}),
-    ...(includeDone ? {} : { status: { not: "completed" } }),
+    AND: [
+      owner ? { owner } : {},
+      moduleId ? { moduleId } : {},
+      phase ? { phase } : {},
+      due ? dueRange[due] : {},
+      includeDone ? {} : { status: { not: "completed" } },
+    ],
   };
 
   const [tasks, modules, ownerRows] = await Promise.all([
@@ -45,7 +67,6 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
     }),
   ]);
 
-  const today = new Date().toISOString().slice(0, 10);
   const weekOut = addDays(today, 7);
   const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
   const rows = tasks.map((t) => ({ ...t, due: day(t.dueDate), start: day(t.startDate) }));
@@ -61,7 +82,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
 
   const openCount = rows.filter(open).length;
   const overdueCount = groups.find((g) => g.key === "overdue")?.items.length ?? 0;
-  const filtered = Boolean(owner || moduleId);
+  const filtered = Boolean(owner || moduleId || phase || due);
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
@@ -91,6 +112,22 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
           {modules.map((m) => (
             <option key={m.id} value={m.id}>
               {moduleTitle(m)}
+            </option>
+          ))}
+        </select>
+        <select name="due" defaultValue={due} className={selectCls} aria-label="Due">
+          <option value="">Due any time</option>
+          {Object.entries(DUE_FILTERS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <select name="phase" defaultValue={phase} className={selectCls} aria-label="Phase">
+          <option value="">All phases</option>
+          {(Object.keys(TASK_PHASE_LABELS) as TaskPhase[]).map((p) => (
+            <option key={p} value={p}>
+              {TASK_PHASE_LABELS[p]}
             </option>
           ))}
         </select>

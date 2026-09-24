@@ -1,11 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { changed } from "@/lib/changed";
 import { redirect } from "next/navigation";
 import type { ModuleStatus, TaskPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { cleanDiscovery, type DiscoveryInput, type DiscoveryScene } from "@/lib/discovery";
-import { MODULE_STATUS_LABELS, TASK_PHASE_LABELS } from "@/lib/labels";
+import { MODULE_STATUS_LABELS, STATUS_PHASE, TASK_PHASE_LABELS } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 
 export type DiscoveryResult = { errors: string[] };
@@ -61,7 +61,7 @@ export async function submitDiscovery(input: DiscoveryInput): Promise<DiscoveryR
     select: { id: true },
   });
 
-  revalidatePath("/", "layout");
+  changed();
   redirect(`/modules/${mod.id}?submitted=1`);
 }
 
@@ -92,22 +92,12 @@ export async function updateDiscovery(
     ),
   ]);
 
-  revalidatePath("/", "layout");
+  changed();
   redirect(`/modules/${moduleId}?saved=1`);
 }
 
-// Which task phase each production status corresponds to. Moving a module to a
-// status means every task in the phases before it should be done.
-const STATUS_PHASE: Partial<Record<ModuleStatus, TaskPhase>> = {
-  pre_production: "pre_production",
-  scripting: "scripting",
-  production: "production",
-  post_production: "post_production",
-  building: "build",
-  playtesting: "playtesting",
-  signed_off: "sign_off",
-  deployed: "deployment",
-};
+// Moving a module to a status means every task in the phases before that
+// status's phase (STATUS_PHASE) should be done.
 const PHASE_ORDER = Object.keys(TASK_PHASE_LABELS) as TaskPhase[];
 
 /**
@@ -149,7 +139,7 @@ export async function setModuleStatus(
   }
 
   await prisma.module.update({ where: { id: moduleId }, data: { status: status as ModuleStatus } });
-  revalidatePath("/", "layout");
+  changed();
   return { errors: [] };
 }
 
@@ -160,6 +150,6 @@ export async function setModuleStatus(
 export async function deleteModule(moduleId: string): Promise<DiscoveryResult> {
   await requireUser();
   await prisma.module.delete({ where: { id: moduleId } });
-  revalidatePath("/", "layout");
+  changed();
   redirect("/modules?deleted=1");
 }

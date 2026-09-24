@@ -5,6 +5,7 @@ import type { ModuleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { MODULE_STATUS_LABELS } from "@/lib/labels";
 import { ModuleTaskBoard } from "@/components/module-task-board";
+import { statusPillStyle } from "@/lib/phase-colors";
 
 export const metadata: Metadata = { title: "Modules · ModuleTracker" };
 
@@ -145,7 +146,10 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
                     {m.targetCompletion && ` · Target ${m.targetCompletion}`}
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                <span
+                  className="shrink-0 rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-800 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                  style={statusPillStyle(m.status)}
+                >
                   {MODULE_STATUS_LABELS[m.status]}
                 </span>
               </Link>

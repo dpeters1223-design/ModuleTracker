@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { changed } from "@/lib/changed";
 import type { TaskPhase, TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -71,7 +71,7 @@ export async function createTask(moduleId: string, input: TaskInput): Promise<Ta
     select: { order: true },
   });
   await prisma.task.create({ data: { moduleId, order: (last?.order ?? 0) + 1, ...fields } });
-  revalidatePath("/", "layout");
+  changed();
   return {};
 }
 
@@ -84,7 +84,7 @@ export async function updateTask(
   const { errors, fields } = validate(input);
   if (errors.length) return { errors };
   await prisma.task.updateMany({ where: { id: taskId, moduleId }, data: fields });
-  revalidatePath("/", "layout");
+  changed();
   return {};
 }
 
@@ -100,7 +100,7 @@ export async function setTaskStatus(
     where: { id: taskId, moduleId },
     data: { status: status as TaskStatus },
   });
-  revalidatePath("/", "layout");
+  changed();
   return {};
 }
 
@@ -116,13 +116,13 @@ export async function setTaskPhase(
     where: { id: taskId, moduleId },
     data: { phase: phase as TaskPhase },
   });
-  revalidatePath("/", "layout");
+  changed();
   return {};
 }
 
 export async function deleteTask(moduleId: string, taskId: string): Promise<TaskResult> {
   await requireUser();
   await prisma.task.deleteMany({ where: { id: taskId, moduleId } });
-  revalidatePath("/", "layout");
+  changed();
   return {};
 }

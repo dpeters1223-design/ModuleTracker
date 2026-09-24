@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { changed } from "@/lib/changed";
 import type { ChangeOrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -82,7 +82,7 @@ export async function createChangeOrder(input: ChangeOrderInput): Promise<Change
   const { errors, fields } = await validate(input);
   if (errors.length) return { errors };
   await prisma.changeOrder.create({ data: fields });
-  revalidatePath("/", "layout");
+  changed();
   return {};
 }
 
@@ -91,7 +91,7 @@ export async function updateChangeOrder(id: string, input: ChangeOrderInput): Pr
   const { errors, fields } = await validate(input);
   if (errors.length) return { errors };
   await prisma.changeOrder.update({ where: { id }, data: fields });
-  revalidatePath("/", "layout");
+  changed();
   return {};
 }
 
@@ -99,13 +99,13 @@ export async function setChangeOrderStatus(id: string, status: string): Promise<
   await requireUser();
   if (!(status in CHANGE_ORDER_STATUS_LABELS)) return { errors: ["Unknown status."] };
   await prisma.changeOrder.update({ where: { id }, data: { status: status as ChangeOrderStatus } });
-  revalidatePath("/", "layout");
+  changed();
   return {};
 }
 
 export async function deleteChangeOrder(id: string): Promise<ChangeOrderResult> {
   await requireUser();
   await prisma.changeOrder.deleteMany({ where: { id } });
-  revalidatePath("/", "layout");
+  changed();
   return {};
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { changed } from "@/lib/changed";
 import type { DocumentType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -36,7 +36,7 @@ export async function addDocumentLink(
       addedById: user.id,
     },
   });
-  revalidatePath(`/modules/${moduleId}`);
+  changed();
   return {};
 }
 
@@ -45,6 +45,6 @@ export async function removeDocumentLink(moduleId: string, linkId: string): Prom
   await requireUser();
   // Scripts are unlinked from the Scripts tab, not here.
   await prisma.documentLink.deleteMany({ where: { id: linkId, moduleId, type: { not: "script" } } });
-  revalidatePath(`/modules/${moduleId}`);
+  changed();
   return {};
 }

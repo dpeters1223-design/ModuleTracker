@@ -38,6 +38,18 @@ export const TASK_PHASE_LABELS: Record<TaskPhase, string> = {
   deployment: "Deployment",
 };
 
+/** The task phase each production status corresponds to (none for On hold / Not started). */
+export const STATUS_PHASE: Partial<Record<ModuleStatus, TaskPhase>> = {
+  pre_production: "pre_production",
+  scripting: "scripting",
+  production: "production",
+  post_production: "post_production",
+  building: "build",
+  playtesting: "playtesting",
+  signed_off: "sign_off",
+  deployed: "deployment",
+};
+
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   not_started: "Not started",
   in_progress: "In progress",

@@ -6,7 +6,8 @@ import { isAllowedEmail } from "@/lib/allowlist";
 // This is the optimistic first gate; Server Actions re-check via requireUser().
 export const proxy = auth((req) => {
   const { pathname, search } = req.nextUrl;
-  if (pathname === "/signin" || pathname.startsWith("/api/auth")) return;
+  // /api/cron routes check their own secret (Vercel Cron has no user session).
+  if (pathname === "/signin" || pathname.startsWith("/api/auth") || pathname.startsWith("/api/cron/")) return;
   if (isAllowedEmail(req.auth?.user?.email)) return;
 
   if (pathname.startsWith("/api/")) {

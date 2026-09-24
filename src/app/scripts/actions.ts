@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { changed } from "@/lib/changed";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import {
@@ -70,7 +70,7 @@ async function saveScriptLink(
   await prisma.documentLink.create({
     data: { moduleId, type: "script", addedById: user.id, ...link },
   });
-  revalidatePath("/", "layout");
+  changed();
 }
 
 async function run(fn: () => Promise<ScriptActionResult | void>): Promise<ScriptActionResult> {
@@ -184,6 +184,6 @@ export async function unlinkScript(moduleId: string, linkId: string): Promise<Sc
   return run(async () => {
     await requireUser();
     await prisma.documentLink.deleteMany({ where: { id: linkId, moduleId, type: "script" } });
-    revalidatePath("/", "layout");
+    changed();
   });
 }

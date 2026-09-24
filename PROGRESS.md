@@ -328,9 +328,24 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     chart for all modules, per module, or both.
   - **"Weekly" tasks** (Jay): meaning unconfirmed: week view vs. phase task templates spaced
     weekly vs. recurring weekly tasks.
-  - **Backups** (David): plan proposed = change-history table + full JSON snapshot to a
-    private Drive "ModuleTracker Backups" folder after changes (latest + daily for 30 days,
-    via Next `after()`) + a restore script. Open: whose Drive, retention.
+  - ~~Weekly tasks~~ → turned out to mean Tasks tab filters; built (see below).
+  - ~~Backups~~ → built (see below).
+- [x] **Round 2 (built locally 2026-09-24, not yet pushed):**
+  - Module status pills tinted with their phase color (`statusPillStyle`; `STATUS_PHASE`
+    moved to `labels.ts`, shared with the prerequisite check).
+  - Tasks tab filters: **Due** (Overdue / This week / Next week; weeks are Mon–Sun) and
+    **Phase**, combinable with owner/module in the URL.
+  - **Backups** (`src/lib/backup.ts`): full JSON snapshot (all tables; users without Google
+    tokens) into a "ModuleTracker Backups" folder in `BACKUP_OWNER_EMAIL`'s Drive (David),
+    shared with `BACKUP_SHARE_WITH` (Jay). Every data change calls `changed()`
+    (`src/lib/changed.ts`: revalidate + `after()` → replace `latest.json`). Nightly Vercel
+    Cron (`vercel.json`, `0 4 * * *` UTC ≈ midnight Eastern, Hobby plan fires within the
+    hour) hits `/api/cron/backup` (Bearer `CRON_SECRET`; proxy lets `/api/cron/` through)
+    → `backup-YYYY-MM-DD.json`, trashing dated copies older than 30 days.
+  - **Restore**: `node scripts/restore-backup.mjs <file>` previews; `--rehearse` restores
+    inside a transaction, verifies counts, rolls back; `--yes` replaces all module data
+    (users kept). Rehearsed successfully against a real backup.
+  - To deploy: add `BACKUP_OWNER_EMAIL`, `BACKUP_SHARE_WITH`, `CRON_SECRET` to Vercel.
 - [ ] **Jay as Drive owner (on hold until Jay confirms the test script):** code now uses
       `SHARE_SCRIPTS_WITH` (explicit email list; replaced `SHARE_SCRIPTS_WITH_TEAM`). Local
       `.env.local` already has `DRIVE_OWNER_EMAIL=jgw226@cornell.edu` and

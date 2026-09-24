@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { changed } from "@/lib/changed";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
@@ -59,13 +59,13 @@ export async function addVersion(moduleId: string, input: VersionInput): Promise
       notes: d.notes || null,
     },
   });
-  revalidatePath(`/modules/${moduleId}`);
+  changed();
   return {};
 }
 
 export async function deleteVersion(moduleId: string, versionId: string): Promise<VersionResult> {
   await requireUser();
   await prisma.moduleVersion.deleteMany({ where: { id: versionId, moduleId } });
-  revalidatePath(`/modules/${moduleId}`);
+  changed();
   return {};
 }

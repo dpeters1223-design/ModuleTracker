@@ -176,3 +176,56 @@ export function driveIdFromUrl(url: string): string | null {
   const m = url.match(/\/d\/([\w-]{20,})/) ?? url.match(/[?&]id=([\w-]{20,})/);
   return m?.[1] ?? null;
 }
+
+/** Files this app created directly inside a folder, optionally filtered by name prefix. */
+export async function listFilesInFolder(
+  token: string,
+  folderId: string,
+  namePrefix = ""
+): Promise<{ id: string; name: string; createdTime: string }[]> {
+  const q = [
+    `'${folderId}' in parents`,
+    "trashed = false",
+    ...(namePrefix ? [`name contains '${namePrefix.replace(/'/g, "\\'")}'`] : []),
+  ].join(" and ");
+  const res = await driveFetch<{ files: { id: string; name: string; createdTime: string }[] }>(
+    token,
+    `${API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,createdTime)&pageSize=1000`
+  );
+  return res.files.filter((f) => f.name.startsWith(namePrefix));
+}
+
+/** Creates a JSON file in a folder, or replaces the content of the one with that name. */
+export async function saveJsonFile(
+  token: string,
+  opts: { folderId: string; name: string; json: string }
+): Promise<{ id: string }> {
+  const existing = (await listFilesInFolder(token, opts.folderId, opts.name)).find((f) => f.name === opts.name);
+  if (existing) {
+    return driveFetch(token, `${UPLOAD}/files/${existing.id}?uploadType=media&fields=id`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json; charset=UTF-8" },
+      body: opts.json,
+    });
+  }
+  const boundary = `mt${crypto.randomUUID()}`;
+  const metadata = { name: opts.name, mimeType: "application/json", parents: [opts.folderId] };
+  const body =
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${opts.json}\r\n` +
+    `--${boundary}--`;
+  return driveFetch(token, `${UPLOAD}/files?uploadType=multipart&fields=id`, {
+    method: "POST",
+    headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+    body,
+  });
+}
+
+/** Moves a file to its owner's Drive trash (recoverable for 30 days). */
+export async function trashFile(token: string, fileId: string) {
+  await driveFetch(token, `${API}/files/${encodeURIComponent(fileId)}?fields=id`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trashed: true }),
+  });
+}

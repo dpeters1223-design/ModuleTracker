@@ -1,4 +1,6 @@
-import type { TaskPhase } from "@prisma/client";
+import type { CSSProperties } from "react";
+import type { ModuleStatus, TaskPhase } from "@prisma/client";
+import { STATUS_PHASE } from "@/lib/labels";
 
 /**
  * One color per production phase, used everywhere a phase appears (board column
@@ -15,3 +17,18 @@ export const PHASE_COLORS: Record<TaskPhase, string> = {
   sign_off: "#5a9e98", // lab teal (deepened)
   deployment: "#5f9357", // green
 };
+
+/** The phase color for a module status, or null for On hold / Not started. */
+export function statusColor(status: string): string | null {
+  const phase = STATUS_PHASE[status as ModuleStatus];
+  return phase ? PHASE_COLORS[phase] : null;
+}
+
+/**
+ * Pill style for a module status: a light tint of its phase color with a solid
+ * border, keeping dark text readable on every color (gold included).
+ */
+export function statusPillStyle(status: string): CSSProperties | undefined {
+  const color = statusColor(status);
+  return color ? { backgroundColor: `${color}26`, borderColor: color } : undefined;
+}
