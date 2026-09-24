@@ -5,6 +5,9 @@ import type { ChangeOrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { CHANGE_ORDER_STATUS_LABELS } from "@/lib/labels";
+import { logActivity } from "@/lib/activity";
+
+const short = (s: string) => (s.length > 60 ? `${s.slice(0, 57)}…` : s);
 
 export type ChangeOrderInput = {
   /** "" = applies to all modules */
@@ -78,34 +81,74 @@ async function validate(input: ChangeOrderInput) {
 }
 
 export async function createChangeOrder(input: ChangeOrderInput): Promise<ChangeOrderResult> {
-  await requireUser();
+  const user = await requireUser();
   const { errors, fields } = await validate(input);
   if (errors.length) return { errors };
-  await prisma.changeOrder.create({ data: fields });
+  const co = await prisma.changeOrder.create({ data: fields });
+  await logActivity(user, {
+    action: "changeorder.create",
+    summary: `Added change order "${short(co.description)}"${co.moduleId ? "" : " (all modules)"}`,
+    entityType: "changeOrder",
+    entityId: co.id,
+    moduleId: co.moduleId,
+    after: co,
+  });
   changed();
   return {};
 }
 
 export async function updateChangeOrder(id: string, input: ChangeOrderInput): Promise<ChangeOrderResult> {
-  await requireUser();
+  const user = await requireUser();
   const { errors, fields } = await validate(input);
   if (errors.length) return { errors };
-  await prisma.changeOrder.update({ where: { id }, data: fields });
+  const before = await prisma.changeOrder.findUnique({ where: { id } });
+  if (!before) return { errors: ["That change order no longer exists."] };
+  const after = await prisma.changeOrder.update({ where: { id }, data: fields });
+  await logActivity(user, {
+    action: "changeorder.update",
+    summary: `Edited change order "${short(after.description)}"`,
+    entityType: "changeOrder",
+    entityId: id,
+    moduleId: after.moduleId ?? before.moduleId,
+    before,
+    after,
+  });
   changed();
   return {};
 }
 
 export async function setChangeOrderStatus(id: string, status: string): Promise<ChangeOrderResult> {
-  await requireUser();
+  const user = await requireUser();
   if (!(status in CHANGE_ORDER_STATUS_LABELS)) return { errors: ["Unknown status."] };
-  await prisma.changeOrder.update({ where: { id }, data: { status: status as ChangeOrderStatus } });
+  const before = await prisma.changeOrder.findUnique({ where: { id } });
+  if (!before) return { errors: ["That change order no longer exists."] };
+  const after = await prisma.changeOrder.update({ where: { id }, data: { status: status as ChangeOrderStatus } });
+  await logActivity(user, {
+    action: "changeorder.status",
+    summary: `Marked change order "${short(after.description)}" ${CHANGE_ORDER_STATUS_LABELS[after.status]}`,
+    entityType: "changeOrder",
+    entityId: id,
+    moduleId: after.moduleId,
+    before,
+    after,
+  });
   changed();
   return {};
 }
 
 export async function deleteChangeOrder(id: string): Promise<ChangeOrderResult> {
-  await requireUser();
-  await prisma.changeOrder.deleteMany({ where: { id } });
+  const user = await requireUser();
+  const co = await prisma.changeOrder.findUnique({ where: { id } });
+  if (!co) return {};
+  await prisma.changeOrder.delete({ where: { id } });
+  await logActivity(user, {
+    action: "changeorder.delete",
+    summary: `Deleted change order "${short(co.description)}"`,
+    entityType: "changeOrder",
+    entityId: id,
+    moduleId: co.moduleId,
+    before: co,
+  });
   changed();
   return {};
 }

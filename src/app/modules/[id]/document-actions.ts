@@ -5,6 +5,7 @@ import type { DocumentType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { DOCUMENT_TYPE_LABELS } from "@/lib/labels";
+import { logActivity } from "@/lib/activity";
 
 export type DocumentResult = { errors?: string[] };
 
@@ -27,7 +28,7 @@ export async function addDocumentLink(
   if (url && url.protocol !== "https:") errors.push("The link must start with https://");
   if (errors.length || !url) return { errors };
 
-  await prisma.documentLink.create({
+  const link = await prisma.documentLink.create({
     data: {
       moduleId,
       type: input.type as DocumentType,
@@ -36,15 +37,33 @@ export async function addDocumentLink(
       addedById: user.id,
     },
   });
+  await logActivity(user, {
+    action: "document.add",
+    summary: `Added ${DOCUMENT_TYPE_LABELS[link.type as keyof typeof DOCUMENT_TYPE_LABELS]} link "${link.label ?? url.hostname}"`,
+    entityType: "documentLink",
+    entityId: link.id,
+    moduleId,
+    after: link,
+  });
   changed();
   return {};
 }
 
 /** Removes the link from the module. The document itself is untouched. */
 export async function removeDocumentLink(moduleId: string, linkId: string): Promise<DocumentResult> {
-  await requireUser();
+  const user = await requireUser();
   // Scripts are unlinked from the Scripts tab, not here.
-  await prisma.documentLink.deleteMany({ where: { id: linkId, moduleId, type: { not: "script" } } });
+  const link = await prisma.documentLink.findFirst({ where: { id: linkId, moduleId, type: { not: "script" } } });
+  if (!link) return {};
+  await prisma.documentLink.delete({ where: { id: linkId } });
+  await logActivity(user, {
+    action: "document.remove",
+    summary: `Removed ${DOCUMENT_TYPE_LABELS[link.type as keyof typeof DOCUMENT_TYPE_LABELS]} link "${link.label ?? link.url}"`,
+    entityType: "documentLink",
+    entityId: linkId,
+    moduleId,
+    before: link,
+  });
   changed();
   return {};
 }

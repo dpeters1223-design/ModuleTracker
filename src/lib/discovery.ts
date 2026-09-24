@@ -18,6 +18,11 @@ export type DiscoveryScene = {
   interaction: string;
   activities: string;
   notes: string;
+  // Optional storyboard details, tucked under "More details" in the form
+  description: string;
+  talent: string;
+  learningObjectives: string;
+  mediaAssets: string;
 };
 
 export type DiscoveryInput = {
@@ -43,6 +48,10 @@ export const emptyScene = (): DiscoveryScene => ({
   interaction: "",
   activities: "",
   notes: "",
+  description: "",
+  talent: "",
+  learningObjectives: "",
+  mediaAssets: "",
 });
 
 export const emptyDiscovery = (): DiscoveryInput => ({
@@ -101,6 +110,10 @@ export function moduleToDiscovery(mod: Module & { scenes: Scene[] }): DiscoveryI
           interaction: s.interactionHighlighted ?? "",
           activities: s.activities ?? "",
           notes: s.notes ?? "",
+          description: s.description ?? "",
+          talent: s.talent ?? "",
+          learningObjectives: s.learningObjectives ?? "",
+          mediaAssets: s.mediaAssets ?? "",
         }))
       : [emptyScene()],
   };
@@ -146,6 +159,10 @@ export function cleanDiscovery(input: DiscoveryInput): {
         interaction: t(s?.interaction),
         activities: t(s?.activities),
         notes: t(s?.notes),
+        description: t(s?.description),
+        talent: t(s?.talent),
+        learningObjectives: t(s?.learningObjectives),
+        mediaAssets: t(s?.mediaAssets),
       }))
       .filter((s) => sceneText(s).some(Boolean)),
   };

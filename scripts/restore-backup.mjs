@@ -8,7 +8,7 @@
 //
 // Uses DATABASE_URL from .env.local. The restore runs in one transaction: if any
 // step fails, nothing changes. Modules, scenes, tasks, document links, versions and
-// change orders are REPLACED by the backup's. Users are kept (with their Google
+// change orders (and the change history) are REPLACED by the backup's. Users are kept (with their Google
 // sign-in connections); users only in the backup are added back without one.
 import { config } from "dotenv";
 import fs from "fs";
@@ -38,6 +38,7 @@ try {
     documentLinks: await prisma.documentLink.count(),
     moduleVersions: await prisma.moduleVersion.count(),
     changeOrders: await prisma.changeOrder.count(),
+    activityLog: await prisma.activityLog.count(),
   };
   console.log(`Backup taken ${backup.exportedAt}`);
   console.log("                 now → after restore");
@@ -67,6 +68,18 @@ try {
         data: d.documentLinks.map((l) => ({ ...l, addedById: userIds.has(l.addedById) ? l.addedById : null })),
       });
       await tx.changeOrder.createMany({ data: d.changeOrders });
+      // Change history (backups made before it existed simply don't have one).
+      if (d.activityLog) {
+        await tx.activityLog.deleteMany({});
+        // Empty JSON fields must be omitted (Prisma rejects a plain null for Json columns).
+        await tx.activityLog.createMany({
+          data: d.activityLog.map(({ before, after, ...row }) => ({
+            ...row,
+            ...(before == null ? {} : { before }),
+            ...(after == null ? {} : { after }),
+          })),
+        });
+      }
 
       const after = {
         modules: await tx.module.count(),
@@ -75,6 +88,7 @@ try {
         documentLinks: await tx.documentLink.count(),
         moduleVersions: await tx.moduleVersion.count(),
         changeOrders: await tx.changeOrder.count(),
+        activityLog: await tx.activityLog.count(),
       };
       const mismatch = Object.entries(backup.counts).filter(([k, v]) => after[k] !== v);
       if (mismatch.length) throw new Error(`Restored counts don't match the backup: ${JSON.stringify(mismatch)}`);

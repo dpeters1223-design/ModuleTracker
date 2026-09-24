@@ -74,6 +74,8 @@ model User {
   googleAccessToken    String?
   googleRefreshToken   String?
   googleTokenExpiresAt DateTime?
+  /// When this user last opened their notifications (the bell)
+  lastSeenActivityAt   DateTime?
 
   documentLinksAdded DocumentLink[]
 
@@ -218,4 +220,31 @@ model ChangeOrder {
   module Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@map("change_orders")
+}
+
+/// One change made in the app: who, what, when, plus enough before/after data to
+/// undo it. Module id/label are plain copies (no foreign key) so history survives
+/// the module being deleted.
+model ActivityLog {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  actorId     String?
+  actorEmail  String
+  actorName   String?
+  /// e.g. "task.create", "module.status", "discovery.update"
+  action      String
+  /// Human-readable, e.g. Moved "Film scenes 1–4" to Post-production
+  summary     String
+  moduleId    String?
+  moduleLabel String?
+  entityType  String
+  entityId    String?
+  before      Json?
+  after       Json?
+  undoneAt    DateTime?
+  undoneBy    String?
+
+  @@index([createdAt])
+  @@index([moduleId, createdAt])
+  @@map("activity_log")
 }

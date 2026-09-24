@@ -3,19 +3,20 @@ import type { ModuleStatus, TaskPhase } from "@prisma/client";
 import { STATUS_PHASE } from "@/lib/labels";
 
 /**
- * One color per production phase, used everywhere a phase appears (board column
- * headers, task lists, the Tasks tab). Warm lab gold → red for the early,
- * creative phases, through navy for the build, to teal/green at release.
+ * One color per production phase, used everywhere a phase appears (board columns,
+ * task lists, the Tasks tab, Gantt bars, module status pills). The actual colors
+ * live in globals.css as --phase-* variables so light and dark mode each get their
+ * own validated shades; these are references to them.
  */
 export const PHASE_COLORS: Record<TaskPhase, string> = {
-  pre_production: "#e2b04a", // lab gold (deepened for contrast)
-  scripting: "#df8a3e", // amber
-  production: "#c24a3a", // toward the lab red
-  post_production: "#8a6a9c", // plum
-  build: "#3d5062", // lab navy
-  playtesting: "#4a84b0", // blue
-  sign_off: "#5a9e98", // lab teal (deepened)
-  deployment: "#5f9357", // green
+  pre_production: "var(--phase-pre_production)",
+  scripting: "var(--phase-scripting)",
+  production: "var(--phase-production)",
+  post_production: "var(--phase-post_production)",
+  build: "var(--phase-build)",
+  playtesting: "var(--phase-playtesting)",
+  sign_off: "var(--phase-sign_off)",
+  deployment: "var(--phase-deployment)",
 };
 
 /** The phase color for a module status, or null for On hold / Not started. */
@@ -30,5 +31,7 @@ export function statusColor(status: string): string | null {
  */
 export function statusPillStyle(status: string): CSSProperties | undefined {
   const color = statusColor(status);
-  return color ? { backgroundColor: `${color}26`, borderColor: color } : undefined;
+  return color
+    ? { backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, borderColor: color }
+    : undefined;
 }

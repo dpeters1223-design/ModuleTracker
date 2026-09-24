@@ -1,7 +1,8 @@
 "use server";
 
 import { changed } from "@/lib/changed";
-import type { TaskPhase, TaskStatus } from "@prisma/client";
+import type { Prisma, Task, TaskPhase, TaskStatus } from "@prisma/client";
+import { logActivity } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { TASK_PHASE_LABELS, TASK_STATUS_LABELS } from "@/lib/labels";
@@ -61,7 +62,7 @@ function validate(input: TaskInput) {
 }
 
 export async function createTask(moduleId: string, input: TaskInput): Promise<TaskResult> {
-  await requireUser();
+  const user = await requireUser();
   const { errors, fields } = validate(input);
   if (errors.length) return { errors };
 
@@ -70,7 +71,40 @@ export async function createTask(moduleId: string, input: TaskInput): Promise<Ta
     orderBy: { order: "desc" },
     select: { order: true },
   });
-  await prisma.task.create({ data: { moduleId, order: (last?.order ?? 0) + 1, ...fields } });
+  const task = await prisma.task.create({ data: { moduleId, order: (last?.order ?? 0) + 1, ...fields } });
+  await logActivity(user, {
+    action: "task.create",
+    summary: `Added task "${task.title}" (${TASK_PHASE_LABELS[task.phase]})`,
+    entityType: "task",
+    entityId: task.id,
+    moduleId,
+    after: task,
+  });
+  changed();
+  return {};
+}
+
+/** Applies a change to one task and records it (with a before copy for undo). */
+async function changeTask(
+  user: Awaited<ReturnType<typeof requireUser>>,
+  moduleId: string,
+  taskId: string,
+  data: Prisma.TaskUpdateInput,
+  action: string,
+  summary: (before: Task, after: Task) => string
+): Promise<TaskResult> {
+  const before = await prisma.task.findFirst({ where: { id: taskId, moduleId } });
+  if (!before) return { errors: ["That task no longer exists."] };
+  const after = await prisma.task.update({ where: { id: taskId }, data });
+  await logActivity(user, {
+    action,
+    summary: summary(before, after),
+    entityType: "task",
+    entityId: taskId,
+    moduleId,
+    before,
+    after,
+  });
   changed();
   return {};
 }
@@ -80,12 +114,10 @@ export async function updateTask(
   taskId: string,
   input: TaskInput
 ): Promise<TaskResult> {
-  await requireUser();
+  const user = await requireUser();
   const { errors, fields } = validate(input);
   if (errors.length) return { errors };
-  await prisma.task.updateMany({ where: { id: taskId, moduleId }, data: fields });
-  changed();
-  return {};
+  return changeTask(user, moduleId, taskId, fields, "task.update", (_, a) => `Edited task "${a.title}"`);
 }
 
 /** Quick status change from the task row. */
@@ -94,35 +126,49 @@ export async function setTaskStatus(
   taskId: string,
   status: string
 ): Promise<TaskResult> {
-  await requireUser();
+  const user = await requireUser();
   if (!(status in TASK_STATUS_LABELS)) return { errors: ["Unknown status."] };
-  await prisma.task.updateMany({
-    where: { id: taskId, moduleId },
-    data: { status: status as TaskStatus },
-  });
-  changed();
-  return {};
+  return changeTask(
+    user,
+    moduleId,
+    taskId,
+    { status: status as TaskStatus },
+    "task.status",
+    (b, a) => `Marked "${a.title}" ${TASK_STATUS_LABELS[a.status]} (was ${TASK_STATUS_LABELS[b.status]})`
+  );
 }
 
-/** Moves a task to another phase (the board's column picker). */
+/** Moves a task to another phase (the board's column picker and drag-and-drop). */
 export async function setTaskPhase(
   moduleId: string,
   taskId: string,
   phase: string
 ): Promise<TaskResult> {
-  await requireUser();
+  const user = await requireUser();
   if (!(phase in TASK_PHASE_LABELS)) return { errors: ["Unknown phase."] };
-  await prisma.task.updateMany({
-    where: { id: taskId, moduleId },
-    data: { phase: phase as TaskPhase },
-  });
-  changed();
-  return {};
+  return changeTask(
+    user,
+    moduleId,
+    taskId,
+    { phase: phase as TaskPhase },
+    "task.phase",
+    (b, a) => `Moved "${a.title}" to ${TASK_PHASE_LABELS[a.phase]} (from ${TASK_PHASE_LABELS[b.phase]})`
+  );
 }
 
 export async function deleteTask(moduleId: string, taskId: string): Promise<TaskResult> {
-  await requireUser();
-  await prisma.task.deleteMany({ where: { id: taskId, moduleId } });
+  const user = await requireUser();
+  const task = await prisma.task.findFirst({ where: { id: taskId, moduleId } });
+  if (!task) return {};
+  await prisma.task.delete({ where: { id: taskId } });
+  await logActivity(user, {
+    action: "task.delete",
+    summary: `Deleted task "${task.title}"`,
+    entityType: "task",
+    entityId: taskId,
+    moduleId,
+    before: task,
+  });
   changed();
   return {};
 }

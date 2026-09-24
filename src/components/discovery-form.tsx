@@ -46,7 +46,11 @@ function Field({
 function loadDraft(): DiscoveryInput {
   try {
     const saved = localStorage.getItem(DRAFT_KEY);
-    if (saved) return { ...emptyDiscovery(), ...JSON.parse(saved) };
+    if (saved) {
+      const draft = { ...emptyDiscovery(), ...JSON.parse(saved) } as DiscoveryInput;
+      // Drafts saved before a field existed: give every scene all current fields.
+      return { ...draft, scenes: draft.scenes.map((s) => ({ ...emptyScene(), ...s })) };
+    }
   } catch {}
   return emptyDiscovery();
 }
@@ -483,6 +487,47 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
                     onChange={(e) => updateScene(i, { notes: e.target.value })}
                   />
                 </Field>
+                {/* Optional storyboard detail; opens by itself if any of it is filled in. */}
+                <details
+                  className="rounded-md border border-dashed border-zinc-300 p-3 dark:border-zinc-700"
+                  open={Boolean(scene.description || scene.talent || scene.learningObjectives || scene.mediaAssets)}
+                >
+                  <summary className="cursor-pointer text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                    More details (optional)
+                  </summary>
+                  <div className="mt-3 space-y-4">
+                    <Field label="Scene description" hint="What happens in this scene, in a sentence or two.">
+                      <textarea
+                        className={`${inputCls} min-h-16`}
+                        value={scene.description}
+                        onChange={(e) => updateScene(i, { description: e.target.value })}
+                      />
+                    </Field>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="On-screen talent" hint="Who appears on camera, if anyone.">
+                        <input
+                          className={inputCls}
+                          value={scene.talent}
+                          onChange={(e) => updateScene(i, { talent: e.target.value })}
+                        />
+                      </Field>
+                      <Field label="Media assets needed" hint="Photos, 2D/3D graphics, video clips…">
+                        <input
+                          className={inputCls}
+                          value={scene.mediaAssets}
+                          onChange={(e) => updateScene(i, { mediaAssets: e.target.value })}
+                        />
+                      </Field>
+                    </div>
+                    <Field label="Scene learning objectives" hint="What this scene should teach, if different from the module's.">
+                      <textarea
+                        className={`${inputCls} min-h-16`}
+                        value={scene.learningObjectives}
+                        onChange={(e) => updateScene(i, { learningObjectives: e.target.value })}
+                      />
+                    </Field>
+                  </div>
+                </details>
               </div>
             ))}
             <button

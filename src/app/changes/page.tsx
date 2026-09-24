@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { getChangeOrderRows, getModuleOptions } from "@/lib/change-orders";
 import { ChangeOrderList } from "@/components/change-order-list";
+import { todayInZone } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Change orders · ModuleTracker" };
 
 export default async function ChangesPage() {
   await connection();
   const [items, modules] = await Promise.all([getChangeOrderRows(), getModuleOptions()]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInZone();
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">

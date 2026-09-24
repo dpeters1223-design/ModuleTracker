@@ -10,6 +10,11 @@ import { DocumentList, type DocumentRow } from "./document-list";
 import { VersionList, type VersionRow } from "./version-list";
 import { ChangeOrderList } from "@/components/change-order-list";
 import { getChangeOrderRows, getModuleOptions } from "@/lib/change-orders";
+import { todayInZone } from "@/lib/dates";
+import { dayLabel, getActivity } from "@/lib/activity-feed";
+import { ActivityList } from "@/components/activity-list";
+import { GanttChart } from "@/components/gantt-chart";
+import { moduleTitle } from "@/lib/script-template";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -29,13 +34,14 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
   const { id } = await props.params;
   const { submitted, saved, tasks: tasksView } = await props.searchParams;
   const taskBoard = tasksView === "board";
+  const taskTimeline = tasksView === "timeline";
   const mod = await getModule(id);
   if (!mod) notFound();
 
   const objectives = mod.learningObjectives?.split("\n").filter(Boolean) ?? [];
   const script = await getScript(mod.id);
 
-  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions] = await Promise.all([
+  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity] = await Promise.all([
     prisma.task.findMany({ where: { moduleId: mod.id }, orderBy: [{ dueDate: "asc" }, { order: "asc" }] }),
     prisma.task.findMany({
       where: { owner: { not: null } },
@@ -55,6 +61,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     // This module's change orders plus the ones that apply to every module
     getChangeOrderRows({ OR: [{ moduleId: mod.id }, { moduleId: null }] }),
     getModuleOptions(),
+    getActivity({ moduleId: mod.id }, 10),
   ]);
   const versions: VersionRow[] = versionRecords.map((v) => ({
     id: v.id,
@@ -85,7 +92,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     notes: t.notes ?? "",
   }));
   const owners = ownerRows.map((o) => o.owner!).filter(Boolean);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInZone();
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8 sm:px-6">
@@ -159,8 +166,9 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
           <nav className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900" aria-label="Task view">
             {(
               [
-                ["List", `/modules/${mod.id}`, !taskBoard],
+                ["List", `/modules/${mod.id}`, !taskBoard && !taskTimeline],
                 ["Board", `/modules/${mod.id}?tasks=board`, taskBoard],
+                ["Timeline", `/modules/${mod.id}?tasks=timeline`, taskTimeline],
               ] as const
             ).map(([label, href, active]) => (
               <Link
@@ -179,8 +187,24 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
             ))}
           </nav>
         </div>
-        <TaskList moduleId={mod.id} tasks={tasks} owners={owners} today={today} addOnly={taskBoard} />
+        <TaskList moduleId={mod.id} tasks={tasks} owners={owners} today={today} addOnly={taskBoard || taskTimeline} />
         {taskBoard && <ModuleTaskBoard module={mod} tasks={taskRecords} today={today} />}
+        {taskTimeline && (
+          <GanttChart
+            today={today}
+            tasks={taskRecords.map((t) => ({
+              id: t.id,
+              moduleId: mod.id,
+              moduleLabel: moduleTitle(mod),
+              title: t.title,
+              phase: t.phase,
+              status: t.status,
+              owner: t.owner,
+              start: day(t.startDate),
+              due: day(t.dueDate),
+            }))}
+          />
+        )}
       </section>
 
       <Section title="Documents">
@@ -193,6 +217,20 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
 
       <Section title="Change orders">
         <ChangeOrderList items={changeOrders} modules={moduleOptions} today={today} defaultModuleId={mod.id} />
+      </Section>
+
+      <Section title="Activity">
+        <ActivityList
+          items={activity}
+          dayLabels={Object.fromEntries([...new Set(activity.map((a) => a.day))].map((d) => [d, dayLabel(d)]))}
+          showModule={false}
+        />
+        <Link
+          href={`/activity?module=${mod.id}`}
+          className="inline-block pt-1 text-sm text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900 dark:hover:text-zinc-100"
+        >
+          Full history for this module →
+        </Link>
       </Section>
 
       <Section title="What it's about">
@@ -235,12 +273,16 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
               <dl className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-[9rem_1fr]">
                 {(
                   [
+                    ["Description", s.description],
                     ["Location", s.location],
                     ["Speaker", s.speaker],
+                    ["On-screen talent", s.talent],
                     ["Tool", s.toolUsed],
                     ["Background", s.backgroundMediaType],
                     ["Highlighted", s.interactionHighlighted],
                     ["Activities", s.activities],
+                    ["Learning objectives", s.learningObjectives],
+                    ["Media assets", s.mediaAssets],
                     ["Notes", s.notes],
                   ] as const
                 )

@@ -8,6 +8,7 @@ import {
   shareWithEditors,
   trashFile,
 } from "@/lib/google-drive";
+import { dayInZone, todayInZone } from "@/lib/dates";
 
 // Backups: a full JSON copy of all app data, kept in a Drive folder OUTSIDE the
 // database. `latest.json` is replaced after every change; the nightly job also
@@ -20,7 +21,7 @@ const RETENTION_DAYS = 30;
 
 /** Everything needed to rebuild the app's data. Google tokens are deliberately left out. */
 export async function buildSnapshot() {
-  const [users, modules, scenes, tasks, documentLinks, moduleVersions, changeOrders] = await Promise.all([
+  const [users, modules, scenes, tasks, documentLinks, moduleVersions, changeOrders, activityLog] = await Promise.all([
     prisma.user.findMany({ select: { id: true, email: true, name: true, image: true, createdAt: true } }),
     prisma.module.findMany(),
     prisma.scene.findMany(),
@@ -28,6 +29,7 @@ export async function buildSnapshot() {
     prisma.documentLink.findMany(),
     prisma.moduleVersion.findMany(),
     prisma.changeOrder.findMany(),
+    prisma.activityLog.findMany(),
   ]);
   return {
     format: "moduletracker-backup",
@@ -40,24 +42,29 @@ export async function buildSnapshot() {
       documentLinks: documentLinks.length,
       moduleVersions: moduleVersions.length,
       changeOrders: changeOrders.length,
+      activityLog: activityLog.length,
     },
-    data: { users, modules, scenes, tasks, documentLinks, moduleVersions, changeOrders },
+    data: { users, modules, scenes, tasks, documentLinks, moduleVersions, changeOrders, activityLog },
   };
 }
 
-async function backupTarget() {
+async function backupTarget(shareDaily: boolean) {
   const email = process.env.BACKUP_OWNER_EMAIL?.trim().toLowerCase();
   if (!email) throw new Error("BACKUP_OWNER_EMAIL isn't configured.");
   const owner = await prisma.user.findUnique({ where: { email }, select: { id: true } });
   if (!owner) throw new Error(`Backup owner ${email} has never signed in to ModuleTracker.`);
   const token = await getGoogleAccessToken(owner.id);
   const folder = await findOrCreateRootFolder(token, BACKUP_FOLDER_NAME);
-  const shareWith = (process.env.BACKUP_SHARE_WITH ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter((e) => e && e !== email);
-  const failed = await shareWithEditors(token, folder.id, shareWith);
-  if (failed.length) console.warn(`[backup] couldn't share backup folder with ${failed.join(", ")}`);
+  // Share once, when the folder is first made — not on every backup. The nightly
+  // run re-applies it, so people added to BACKUP_SHARE_WITH later get access by morning.
+  if (folder.created || shareDaily) {
+    const shareWith = (process.env.BACKUP_SHARE_WITH ?? "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter((e) => e && e !== email);
+    const failed = await shareWithEditors(token, folder.id, shareWith);
+    if (failed.length) console.warn(`[backup] couldn't share backup folder with ${failed.join(", ")}`);
+  }
   return { token, folderId: folder.id };
 }
 
@@ -69,17 +76,17 @@ async function backupTarget() {
 export async function saveBackup(kind: "latest" | "daily") {
   const snapshot = await buildSnapshot();
   const json = JSON.stringify(snapshot, null, 2);
-  const { token, folderId } = await backupTarget();
+  const { token, folderId } = await backupTarget(kind === "daily");
 
   const written = ["latest.json"];
   await saveJsonFile(token, { folderId, name: "latest.json", json });
 
   let trashed = 0;
   if (kind === "daily") {
-    const name = `backup-${snapshot.exportedAt.slice(0, 10)}.json`;
+    const name = `backup-${todayInZone()}.json`;
     await saveJsonFile(token, { folderId, name, json });
     written.push(name);
-    const cutoff = new Date(Date.now() - RETENTION_DAYS * 86_400_000).toISOString().slice(0, 10);
+    const cutoff = dayInZone(new Date(Date.now() - RETENTION_DAYS * 86_400_000));
     for (const f of await listFilesInFolder(token, folderId, "backup-")) {
       const day = f.name.match(/^backup-(\d{4}-\d{2}-\d{2})\.json$/)?.[1];
       if (day && day < cutoff) {

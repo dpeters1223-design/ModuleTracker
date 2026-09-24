@@ -8,6 +8,7 @@ import { moduleTitle } from "@/lib/script-template";
 import { TaskStatusSelect } from "@/components/task-status";
 import { PhaseDot } from "@/components/phase-dot";
 import { formatDay } from "@/lib/task-format";
+import { todayInZone } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Tasks · ModuleTracker" };
 
@@ -33,7 +34,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
   const due = typeof sp.due === "string" && sp.due in DUE_FILTERS ? (sp.due as keyof typeof DUE_FILTERS) : "";
 
   // Weeks run Monday–Sunday. Dates are calendar days stored at noon UTC.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInZone();
   const weekStart = addDays(today, -((new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7));
   const noon = (d: string) => new Date(`${d}T12:00:00Z`);
   const dueRange: Record<keyof typeof DUE_FILTERS, Prisma.TaskWhereInput> = {

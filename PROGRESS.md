@@ -346,6 +346,30 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     inside a transaction, verifies counts, rolls back; `--yes` replaces all module data
     (users kept). Rehearsed successfully against a real backup.
   - To deploy: add `BACKUP_OWNER_EMAIL`, `BACKUP_SHARE_WITH`, `CRON_SECRET` to Vercel.
+- [x] **Round 3 (built locally 2026-09-24, not yet pushed):**
+  - **Time zone**: `APP_TIMEZONE` (America/New_York); `src/lib/dates.ts` `todayInZone()` etc.
+    replace UTC "today" everywhere (overdue, week filters, backup file names).
+  - **Backup trim**: backup folder is shared on creation + nightly only (not every change).
+  - **Phase colors re-validated** with the dataviz validator (old set failed normal-vision
+    and CVD separation). Now CSS vars `--phase-*` in globals.css with separate dark-mode
+    steps; `PHASE_COLORS` holds `var(...)` refs; pills use `color-mix`. Order (pipeline):
+    gold, blue, red, teal-green, orange, violet, pink, green.
+  - **Gantt / Timeline**: `src/components/gantt-chart.tsx`; Modules tab `?view=timeline`
+    (grouped by module) and module page `?tasks=timeline`. Bars start→due by phase color,
+    Today line, legend, hover tooltip, overdue ring+label, undated count.
+  - **Dashboard** at `/` (was a redirect): headline numbers, modules by stage, overdue,
+    due this week, open change orders, recent activity. New "Dashboard" nav tab.
+  - **Optional scene details** in the Discovery Form ("More details": description, talent,
+    scene learning objectives, media assets) → module page + script template.
+  - **Change history + Undo**: `ActivityLog` table (migration `20260924200000_activity_log`,
+    applied). Every mutating action logs actor/summary/before/after via `logActivity`
+    (`src/lib/activity.ts`); `undoActivity` handles create/delete/update plus whole-module
+    specials (discovery edit, module delete). `/activity` tab (filters, Undo) + per-module
+    Activity section + dashboard feed. History is included in backups/restore.
+  - **Notifications**: in-app bell for `NOTIFY_USERS` (David, Jay) counting changes by
+    `NOTIFY_ABOUT` (Tom = tjp83, assumed) since `User.lastSeenActivityAt`; opening
+    `/activity?watch=1` clears it. No email.
+  - New env for Vercel: `APP_TIMEZONE`, `NOTIFY_USERS`, `NOTIFY_ABOUT` (+ the three backup ones).
 - [ ] **Jay as Drive owner (on hold until Jay confirms the test script):** code now uses
       `SHARE_SCRIPTS_WITH` (explicit email list; replaced `SHARE_SCRIPTS_WITH_TEAM`). Local
       `.env.local` already has `DRIVE_OWNER_EMAIL=jgw226@cornell.edu` and

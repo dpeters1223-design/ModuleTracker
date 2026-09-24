@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { MODULE_STATUS_LABELS } from "@/lib/labels";
 import { ModuleTaskBoard } from "@/components/module-task-board";
 import { statusPillStyle } from "@/lib/phase-colors";
+import { todayInZone } from "@/lib/dates";
+import { GanttChart } from "@/components/gantt-chart";
+import { moduleTitle } from "@/lib/script-template";
 
 export const metadata: Metadata = { title: "Modules · ModuleTracker" };
 
@@ -16,6 +19,8 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
   await connection();
   const { deleted, view } = await props.searchParams;
   const board = view === "board";
+  const timeline = view === "timeline";
+  const wide = board || timeline;
 
   const [modules, tasks, scripts] = await Promise.all([
     prisma.module.findMany({
@@ -26,7 +31,7 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
     prisma.documentLink.findMany({ where: { type: "script" }, select: { moduleId: true } }),
   ]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInZone();
   const hasScript = new Set(scripts.map((s) => s.moduleId));
   const taskStats = new Map<string, { done: number; total: number; overdue: number }>();
   for (const t of tasks) {
@@ -74,8 +79,8 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
     }`;
 
   return (
-    <main className={`mx-auto w-full px-4 py-8 sm:px-6 ${board ? "max-w-none" : "max-w-4xl"}`}>
-      <div className={board ? "mx-auto max-w-4xl" : ""}>
+    <main className={`mx-auto w-full px-4 py-8 sm:px-6 ${wide ? "max-w-none" : "max-w-4xl"}`}>
+      <div className={wide ? "mx-auto max-w-4xl" : ""}>
         {deleted && (
           <div
             role="status"
@@ -93,11 +98,14 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
           </div>
           {modules.length > 0 && (
             <nav className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900" aria-label="View">
-              <Link href="/modules" className={toggle(!board)} aria-current={!board ? "page" : undefined}>
+              <Link href="/modules" className={toggle(!wide)} aria-current={!wide ? "page" : undefined}>
                 List
               </Link>
               <Link href="/modules?view=board" className={toggle(board)} aria-current={board ? "page" : undefined}>
                 Board
+              </Link>
+              <Link href="/modules?view=timeline" className={toggle(timeline)} aria-current={timeline ? "page" : undefined}>
+                Timeline
               </Link>
             </nav>
           )}
@@ -114,6 +122,30 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
             . It captures the topic, learning objectives, tools and a scene-by-scene outline.
           </p>
         </div>
+      ) : timeline ? (
+        <GanttChart
+          groupByModule
+          today={today}
+          tasks={[...PIPELINE, "on_hold" as const].flatMap((status) =>
+            modules
+              .filter((m) => m.status === status)
+              .flatMap((m) =>
+                tasks
+                  .filter((t) => t.moduleId === m.id)
+                  .map((t) => ({
+                    id: t.id,
+                    moduleId: m.id,
+                    moduleLabel: moduleTitle(m),
+                    title: t.title,
+                    phase: t.phase,
+                    status: t.status,
+                    owner: t.owner,
+                    start: t.startDate ? t.startDate.toISOString().slice(0, 10) : "",
+                    due: t.dueDate ? t.dueDate.toISOString().slice(0, 10) : "",
+                  }))
+              )
+          )}
+        />
       ) : board ? (
         // One task board per module, active modules first and On hold last.
         <div className="space-y-10">

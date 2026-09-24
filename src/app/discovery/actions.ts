@@ -4,9 +4,17 @@ import { changed } from "@/lib/changed";
 import { redirect } from "next/navigation";
 import type { ModuleStatus, TaskPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { moduleTitle } from "@/lib/script-template";
 import { cleanDiscovery, type DiscoveryInput, type DiscoveryScene } from "@/lib/discovery";
 import { MODULE_STATUS_LABELS, STATUS_PHASE, TASK_PHASE_LABELS } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
+import { logActivity } from "@/lib/activity";
+
+// The Module columns the Discovery Form owns (what an edit can change and undo restores).
+const DISCOVERY_KEYS = [
+  "name", "number", "description", "audience", "targetCompletion",
+  "runtimeMinutes", "learningObjectives", "toolsUsed", "featuresDiscussed",
+] as const;
 
 export type DiscoveryResult = { errors: string[] };
 
@@ -44,11 +52,15 @@ function sceneFields(s: DiscoveryScene, i: number) {
     interactionHighlighted: opt(s.interaction),
     activities: opt(s.activities),
     notes: opt(s.notes),
+    description: opt(s.description),
+    talent: opt(s.talent),
+    learningObjectives: opt(s.learningObjectives),
+    mediaAssets: opt(s.mediaAssets),
   };
 }
 
 export async function submitDiscovery(input: DiscoveryInput): Promise<DiscoveryResult> {
-  await requireUser();
+  const user = await requireUser();
   const { data, errors } = cleanDiscovery(input);
   if (errors.length) return { errors };
 
@@ -58,9 +70,17 @@ export async function submitDiscovery(input: DiscoveryInput): Promise<DiscoveryR
       status: "pre_production",
       scenes: { create: data.scenes.map(sceneFields) },
     },
-    select: { id: true },
+    select: { id: true, number: true, name: true },
   });
 
+  await logActivity(user, {
+    action: "discovery.create",
+    summary: `Created module from the Discovery Form (${data.scenes.length} scene${data.scenes.length === 1 ? "" : "s"})`,
+    entityType: "module",
+    entityId: mod.id,
+    moduleId: mod.id,
+    after: { id: mod.id },
+  });
   changed();
   redirect(`/modules/${mod.id}?submitted=1`);
 }
@@ -74,11 +94,12 @@ export async function updateDiscovery(
   moduleId: string,
   input: DiscoveryInput
 ): Promise<DiscoveryResult> {
-  await requireUser();
+  const user = await requireUser();
   const { data, errors } = cleanDiscovery(input);
   if (errors.length) return { errors };
 
-  const existing = await prisma.scene.findMany({ where: { moduleId }, select: { id: true } });
+  const modBefore = await prisma.module.findUniqueOrThrow({ where: { id: moduleId } });
+  const existing = await prisma.scene.findMany({ where: { moduleId }, orderBy: { order: "asc" } });
   const existingIds = new Set(existing.map((s) => s.id));
   const keptIds = new Set(data.scenes.map((s) => s.id).filter((id) => id && existingIds.has(id)));
 
@@ -92,6 +113,21 @@ export async function updateDiscovery(
     ),
   ]);
 
+  const removed = existing.length - keptIds.size;
+  const added = data.scenes.length - keptIds.size;
+  await logActivity(user, {
+    action: "discovery.update",
+    summary:
+      "Edited Discovery answers" +
+      (added || removed ? ` (${[added && `${added} scene${added === 1 ? "" : "s"} added`, removed && `${removed} removed`].filter(Boolean).join(", ")})` : ""),
+    entityType: "module",
+    entityId: moduleId,
+    moduleId,
+    before: {
+      module: { id: moduleId, ...Object.fromEntries(DISCOVERY_KEYS.map((k) => [k, modBefore[k]])) },
+      scenes: existing,
+    },
+  });
   changed();
   redirect(`/modules/${moduleId}?saved=1`);
 }
@@ -110,7 +146,7 @@ export async function setModuleStatus(
   status: string,
   force = false
 ): Promise<DiscoveryResult & { warning?: string }> {
-  await requireUser();
+  const user = await requireUser();
   if (!(status in MODULE_STATUS_LABELS)) return { errors: ["Unknown status."] };
 
   const target = STATUS_PHASE[status as ModuleStatus];
@@ -138,7 +174,20 @@ export async function setModuleStatus(
     }
   }
 
+  const before = await prisma.module.findUniqueOrThrow({ where: { id: moduleId }, select: { id: true, status: true } });
+  if (before.status === status) return { errors: [] };
   await prisma.module.update({ where: { id: moduleId }, data: { status: status as ModuleStatus } });
+  await logActivity(user, {
+    action: "module.status",
+    summary:
+      `Changed status to ${MODULE_STATUS_LABELS[status as ModuleStatus]} (was ${MODULE_STATUS_LABELS[before.status]})` +
+      (force ? " despite open earlier tasks" : ""),
+    entityType: "module",
+    entityId: moduleId,
+    moduleId,
+    before,
+    after: { id: moduleId, status },
+  });
   changed();
   return { errors: [] };
 }
@@ -148,8 +197,23 @@ export async function setModuleStatus(
  * Drive folder and script document are left in Google Drive.
  */
 export async function deleteModule(moduleId: string): Promise<DiscoveryResult> {
-  await requireUser();
+  const user = await requireUser();
+  // Keep a full copy (module + everything that cascades) so the delete can be undone.
+  const mod = await prisma.module.findUniqueOrThrow({
+    where: { id: moduleId },
+    include: { scenes: true, tasks: true, documentLinks: true, versions: true, changeOrders: true },
+  });
+  const { scenes, tasks, documentLinks, versions, changeOrders, ...moduleRow } = mod;
   await prisma.module.delete({ where: { id: moduleId } });
+  await logActivity(user, {
+    action: "module.delete",
+    summary: `Deleted module (${scenes.length} scenes, ${tasks.length} tasks)`,
+    entityType: "module",
+    entityId: moduleId,
+    moduleId,
+    moduleLabel: moduleTitle(moduleRow),
+    before: { module: moduleRow, scenes, tasks, documentLinks, versions, changeOrders },
+  });
   changed();
   redirect("/modules?deleted=1");
 }

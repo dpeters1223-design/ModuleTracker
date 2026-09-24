@@ -14,6 +14,7 @@ import {
   shareWithEditors,
 } from "@/lib/google-drive";
 import { buildScriptHtml, moduleTitle } from "@/lib/script-template";
+import { logActivity } from "@/lib/activity";
 
 // Every Drive call here runs as the Drive owner (DRIVE_OWNER_EMAIL), not the
 // person clicking, so all scripts end up in one Drive under one person's control.
@@ -65,11 +66,13 @@ async function ensureFolder(token: string, moduleId: string) {
 async function saveScriptLink(
   user: User,
   moduleId: string,
-  link: { url: string; label: string; driveFileId: string | null }
+  link: { url: string; label: string; driveFileId: string | null },
+  how: { action: string; summary: string }
 ) {
-  await prisma.documentLink.create({
+  const saved = await prisma.documentLink.create({
     data: { moduleId, type: "script", addedById: user.id, ...link },
   });
+  await logActivity(user, { ...how, entityType: "documentLink", entityId: saved.id, moduleId, after: saved });
   changed();
 }
 
@@ -100,7 +103,12 @@ export async function startScript(moduleId: string): Promise<ScriptActionResult>
       html: buildScriptHtml(mod, mod.scenes),
       parentId: folderId,
     });
-    await saveScriptLink(user, moduleId, { url: doc.webViewLink, label: name, driveFileId: doc.id });
+    await saveScriptLink(
+      user,
+      moduleId,
+      { url: doc.webViewLink, label: name, driveFileId: doc.id },
+      { action: "script.start", summary: "Started the script from the Discovery Form" }
+    );
     return { warning };
   });
 }
@@ -138,11 +146,12 @@ export async function registerUploadedScript(
     await assertNoScript(moduleId);
     const meta = await getFileMeta(await getDriveOwnerToken(), fileId);
     if (!meta) throw new DriveError("The uploaded file couldn't be found in Google Drive.");
-    await saveScriptLink(user, moduleId, {
-      url: meta.webViewLink,
-      label: meta.name,
-      driveFileId: meta.id,
-    });
+    await saveScriptLink(
+      user,
+      moduleId,
+      { url: meta.webViewLink, label: meta.name, driveFileId: meta.id },
+      { action: "script.import", summary: `Imported a Word file as the script ("${meta.name}")` }
+    );
   });
 }
 
@@ -171,19 +180,30 @@ export async function linkExistingScript(
           .then((token) => getFileMeta(token, fileId))
           .catch(() => null)
       : null;
-    await saveScriptLink(user, moduleId, {
-      url: url.href,
-      label: meta?.name ?? "Script",
-      driveFileId: meta?.id ?? null,
-    });
+    await saveScriptLink(
+      user,
+      moduleId,
+      { url: url.href, label: meta?.name ?? "Script", driveFileId: meta?.id ?? null },
+      { action: "script.link", summary: "Linked an existing document as the script" }
+    );
   });
 }
 
 /** Unlinks the script from the module. The document itself is left untouched. */
 export async function unlinkScript(moduleId: string, linkId: string): Promise<ScriptActionResult> {
   return run(async () => {
-    await requireUser();
-    await prisma.documentLink.deleteMany({ where: { id: linkId, moduleId, type: "script" } });
+    const user = await requireUser();
+    const link = await prisma.documentLink.findFirst({ where: { id: linkId, moduleId, type: "script" } });
+    if (!link) return;
+    await prisma.documentLink.delete({ where: { id: linkId } });
+    await logActivity(user, {
+      action: "script.unlink",
+      summary: "Unlinked the script (the document itself is untouched)",
+      entityType: "documentLink",
+      entityId: linkId,
+      moduleId,
+      before: link,
+    });
     changed();
   });
 }

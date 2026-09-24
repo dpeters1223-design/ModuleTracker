@@ -105,15 +105,19 @@ export async function createFolder(
 
 /**
  * Finds a top-level folder with this name that this app created (drive.file only
- * lists the app's own files), or creates it.
+ * lists the app's own files), or creates it. `created` says which happened.
  */
-export async function findOrCreateRootFolder(token: string, name: string): Promise<DriveFile> {
+export async function findOrCreateRootFolder(
+  token: string,
+  name: string
+): Promise<DriveFile & { created: boolean }> {
   const q = `name = '${name.replace(/'/g, "\\'")}' and mimeType = '${FOLDER_MIME}' and 'root' in parents and trashed = false`;
   const found = await driveFetch<{ files: DriveFile[] }>(
     token,
     `${API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,webViewLink)&pageSize=1`
   );
-  return found.files[0] ?? createFolder(token, name);
+  if (found.files[0]) return { ...found.files[0], created: false };
+  return { ...(await createFolder(token, name)), created: true };
 }
 
 /** Uploads HTML and lets Drive convert it into a Google Doc. */

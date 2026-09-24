@@ -45,6 +45,10 @@ export function buildScriptHtml(mod: Module, scenes: Scene[]): string {
       s.speaker && `Speaker: ${s.speaker}`,
     ].filter(Boolean) as string[];
     if (meta.length) parts.push(`<p><i>${esc(meta.join(" · "))}</i></p>`);
+    if (s.description) parts.push(`<p>${multiline(s.description)}</p>`);
+    if (s.talent) parts.push(`<p><b>On-screen talent:</b> ${esc(s.talent)}</p>`);
+    if (s.learningObjectives) parts.push(`<p><b>Scene learning objectives:</b> ${multiline(s.learningObjectives)}</p>`);
+    if (s.mediaAssets) parts.push(`<p><b>Media assets:</b> ${multiline(s.mediaAssets)}</p>`);
     if (s.interactionHighlighted) {
       parts.push(`<p><b>Highlighted / clicked:</b> ${multiline(s.interactionHighlighted)}</p>`);
     }

@@ -3,6 +3,7 @@
 import { changed } from "@/lib/changed";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { logActivity } from "@/lib/activity";
 
 export type VersionInput = {
   version: string;
@@ -17,7 +18,7 @@ export type VersionInput = {
 export type VersionResult = { errors?: string[] };
 
 export async function addVersion(moduleId: string, input: VersionInput): Promise<VersionResult> {
-  await requireUser();
+  const user = await requireUser();
   const t = (s: unknown) => (typeof s === "string" ? s.trim() : "");
   const d = {
     version: t(input.version),
@@ -46,7 +47,7 @@ export async function addVersion(moduleId: string, input: VersionInput): Promise
   }
   if (errors.length) return { errors };
 
-  await prisma.moduleVersion.create({
+  const version = await prisma.moduleVersion.create({
     data: {
       moduleId,
       version: d.version,
@@ -59,13 +60,31 @@ export async function addVersion(moduleId: string, input: VersionInput): Promise
       notes: d.notes || null,
     },
   });
+  await logActivity(user, {
+    action: "version.add",
+    summary: `Logged version ${version.version}`,
+    entityType: "moduleVersion",
+    entityId: version.id,
+    moduleId,
+    after: version,
+  });
   changed();
   return {};
 }
 
 export async function deleteVersion(moduleId: string, versionId: string): Promise<VersionResult> {
-  await requireUser();
-  await prisma.moduleVersion.deleteMany({ where: { id: versionId, moduleId } });
+  const user = await requireUser();
+  const version = await prisma.moduleVersion.findFirst({ where: { id: versionId, moduleId } });
+  if (!version) return {};
+  await prisma.moduleVersion.delete({ where: { id: versionId } });
+  await logActivity(user, {
+    action: "version.delete",
+    summary: `Deleted version ${version.version}`,
+    entityType: "moduleVersion",
+    entityId: versionId,
+    moduleId,
+    before: version,
+  });
   changed();
   return {};
 }

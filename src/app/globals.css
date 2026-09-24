@@ -26,10 +26,35 @@
   --color-lab-red: #b31b1b;
 }
 
+/*
+ * One color per production phase (in pipeline order). Validated as a categorical
+ * palette — lightness band, chroma, colorblind and normal-vision separation of
+ * neighbouring phases — with separate steps for dark mode. Neighbours sit in the
+ * CVD 6–8 band, so phase color always appears beside the phase's name.
+ */
+:root {
+  --phase-pre_production: #eda100;
+  --phase-scripting: #2a78d6;
+  --phase-production: #e34948;
+  --phase-post_production: #1baf7a;
+  --phase-build: #eb6834;
+  --phase-playtesting: #4a3aa7;
+  --phase-sign_off: #e87ba4;
+  --phase-deployment: #008300;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --phase-pre_production: #c98500;
+    --phase-scripting: #3987e5;
+    --phase-production: #e66767;
+    --phase-post_production: #199e70;
+    --phase-build: #d95926;
+    --phase-playtesting: #9085e9;
+    --phase-sign_off: #d55181;
+    --phase-deployment: #008300;
   }
 }
 
