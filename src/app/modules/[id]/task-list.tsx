@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { TASK_PHASE_LABELS, TASK_STATUS_LABELS } from "@/lib/labels";
 import { TaskStatusSelect } from "@/components/task-status";
+import { PhaseDot } from "@/components/phase-dot";
 import { formatDay as fmt, TASK_STATUSES as STATUSES } from "@/lib/task-format";
 import { createTask, deleteTask, updateTask, type TaskInput, type TaskResult } from "./task-actions";
 
@@ -16,7 +17,7 @@ const inputCls =
   "dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-zinc-800";
 const btn =
   "rounded-md px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50";
-const primaryBtn = `${btn} bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300`;
+const primaryBtn = `${btn} bg-brand text-white hover:bg-brand-hover dark:bg-gold dark:text-brand dark:hover:bg-gold-dark`;
 const secondaryBtn = `${btn} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`;
 const linkBtn = "text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100";
 
@@ -224,7 +225,8 @@ export function TaskList({
 
       {byPhase.map(({ phase, tasks: group }) => (
         <section key={phase} className="space-y-2">
-          <h3 className="flex items-baseline gap-2 text-sm font-semibold">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <PhaseDot phase={phase} />
             {TASK_PHASE_LABELS[phase]}
             <span className="text-xs font-normal text-zinc-500">
               {group.filter((t) => t.status === "completed").length}/{group.length}

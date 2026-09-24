@@ -23,7 +23,7 @@ export function NavTabs() {
             aria-current={active ? "page" : undefined}
             className={`-mb-px flex items-center border-b-2 text-sm font-medium ${
               active
-                ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+                ? "border-brand text-brand dark:border-gold dark:text-gold"
                 : "border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
             }`}
           >

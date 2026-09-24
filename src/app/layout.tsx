@@ -31,9 +31,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100">
         <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+          {/* Gold-to-teal strip, echoing the lab logo's swirl */}
+          <div className="h-1 bg-gradient-to-r from-gold via-gold-dark to-teal" aria-hidden />
           <nav className="mx-auto flex h-14 w-full max-w-4xl items-stretch justify-between gap-6 px-4 sm:px-6">
             <div className="flex items-stretch gap-8">
-              <Link href="/" className="flex items-center font-semibold tracking-tight">
+              <Link href="/" className="flex items-center font-semibold tracking-tight text-brand dark:text-gold">
                 ModuleTracker
               </Link>
               {session?.user && <NavTabs />}
@@ -42,7 +44,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <div className="flex items-center gap-4">
                 <Link
                   href="/discovery/new"
-                  className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                  className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover dark:bg-gold dark:text-brand dark:hover:bg-gold-dark"
                 >
                   + New module
                 </Link>

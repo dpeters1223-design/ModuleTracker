@@ -5,11 +5,25 @@
   --foreground: #171717;
 }
 
+/*
+ * Lab palette, sampled from the lab logo: slate navy text, the swirl's warm gold
+ * and soft teal, and the deep red accent. Used as Tailwind colors (bg-brand,
+ * text-gold, border-teal, …).
+ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-brand: #3d5062;
+  --color-brand-hover: #2e3d4b;
+  --color-brand-light: #e7ebef;
+  --color-gold: #fddb93;
+  --color-gold-dark: #d9a441;
+  --color-teal: #76ada9;
+  --color-teal-light: #dcebe9;
+  --color-lab-red: #b31b1b;
 }
 
 @media (prefers-color-scheme: dark) {

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { TASK_PHASE_LABELS } from "@/lib/labels";
 import { moduleTitle } from "@/lib/script-template";
 import { TaskStatusSelect } from "@/components/task-status";
+import { PhaseDot } from "@/components/phase-dot";
 import { formatDay } from "@/lib/task-format";
 
 export const metadata: Metadata = { title: "Tasks · ModuleTracker" };
@@ -138,7 +139,10 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
                           {moduleTitle(t.module)}
                         </Link>
                         {" · "}
-                        {TASK_PHASE_LABELS[t.phase]}
+                        <span className="inline-flex items-center gap-1 align-middle">
+                          <PhaseDot phase={t.phase} />
+                          {TASK_PHASE_LABELS[t.phase]}
+                        </span>
                         {t.owner && ` · ${t.owner}`}
                       </p>
                     </div>

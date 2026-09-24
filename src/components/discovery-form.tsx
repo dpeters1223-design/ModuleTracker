@@ -21,7 +21,7 @@ const inputCls =
   "dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-zinc-800";
 const btnCls =
   "rounded-md px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50";
-const primaryBtn = `${btnCls} bg-zinc-900 text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300`;
+const primaryBtn = `${btnCls} bg-brand text-white hover:bg-brand-hover dark:bg-gold dark:text-brand dark:hover:bg-gold-dark`;
 const secondaryBtn = `${btnCls} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`;
 const linkBtn = "text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100";
 
@@ -166,7 +166,7 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
               }}
               className={`rounded-full px-3 py-1 text-xs font-medium ${
                 i === step
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  ? "bg-brand text-white dark:bg-gold dark:text-brand"
                   : i < step
                     ? "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200"
                     : "bg-zinc-100 text-zinc-500 dark:bg-zinc-900"

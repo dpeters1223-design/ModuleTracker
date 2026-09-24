@@ -24,7 +24,11 @@ export function ModuleStatusSelect({ moduleId, status }: { moduleId: string; sta
       onChange={(e) => {
         const next = e.target.value;
         startTransition(async () => {
-          await setModuleStatus(moduleId, next);
+          const res = await setModuleStatus(moduleId, next);
+          // Prerequisites not met: explain and let the user move it anyway.
+          if (res.warning && confirm(`${res.warning}\n\nMove it anyway?`)) {
+            await setModuleStatus(moduleId, next, true);
+          }
         });
       }}
     >

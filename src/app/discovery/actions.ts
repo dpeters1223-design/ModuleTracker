@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ModuleStatus } from "@prisma/client";
+import type { ModuleStatus, TaskPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { cleanDiscovery, type DiscoveryInput, type DiscoveryScene } from "@/lib/discovery";
-import { MODULE_STATUS_LABELS } from "@/lib/labels";
+import { MODULE_STATUS_LABELS, TASK_PHASE_LABELS } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 
 export type DiscoveryResult = { errors: string[] };
@@ -96,9 +96,58 @@ export async function updateDiscovery(
   redirect(`/modules/${moduleId}?saved=1`);
 }
 
-export async function setModuleStatus(moduleId: string, status: string): Promise<DiscoveryResult> {
+// Which task phase each production status corresponds to. Moving a module to a
+// status means every task in the phases before it should be done.
+const STATUS_PHASE: Partial<Record<ModuleStatus, TaskPhase>> = {
+  pre_production: "pre_production",
+  scripting: "scripting",
+  production: "production",
+  post_production: "post_production",
+  building: "build",
+  playtesting: "playtesting",
+  signed_off: "sign_off",
+  deployed: "deployment",
+};
+const PHASE_ORDER = Object.keys(TASK_PHASE_LABELS) as TaskPhase[];
+
+/**
+ * Changes a module's status. Moving it forward checks the prerequisites: if tasks
+ * in earlier phases aren't done, it returns a `warning` instead of saving, and the
+ * caller can confirm and retry with `force` (a soft gate, not a hard block).
+ */
+export async function setModuleStatus(
+  moduleId: string,
+  status: string,
+  force = false
+): Promise<DiscoveryResult & { warning?: string }> {
   await requireUser();
   if (!(status in MODULE_STATUS_LABELS)) return { errors: ["Unknown status."] };
+
+  const target = STATUS_PHASE[status as ModuleStatus];
+  if (target && !force) {
+    const earlier = PHASE_ORDER.slice(0, PHASE_ORDER.indexOf(target));
+    const open = await prisma.task.findMany({
+      where: { moduleId, phase: { in: earlier }, status: { not: "completed" } },
+      select: { title: true, phase: true },
+      orderBy: { order: "asc" },
+    });
+    if (open.length) {
+      const byPhase = earlier
+        .map((p) => ({ p, n: open.filter((t) => t.phase === p).length }))
+        .filter((x) => x.n)
+        .map((x) => `${x.n} ${TASK_PHASE_LABELS[x.p]}`)
+        .join(", ");
+      const examples = open.slice(0, 3).map((t) => `• ${t.title}`).join("\n");
+      return {
+        errors: [],
+        warning:
+          `Not everything before ${MODULE_STATUS_LABELS[status as ModuleStatus]} is done ` +
+          `(${byPhase} task${open.length === 1 ? "" : "s"} still open):\n${examples}` +
+          (open.length > 3 ? `\n…and ${open.length - 3} more` : ""),
+      };
+    }
+  }
+
   await prisma.module.update({ where: { id: moduleId }, data: { status: status as ModuleStatus } });
   revalidatePath("/", "layout");
   return { errors: [] };

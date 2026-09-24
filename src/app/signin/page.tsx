@@ -41,7 +41,7 @@ export default async function SignInPage(props: PageProps<"/signin">) {
       >
         <button
           type="submit"
-          className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="w-full rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover dark:bg-gold dark:text-brand dark:hover:bg-gold-dark"
         >
           Continue with Google
         </button>
