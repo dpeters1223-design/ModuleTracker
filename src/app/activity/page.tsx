@@ -48,7 +48,10 @@ export default async function ActivityPage(props: PageProps<"/activity">) {
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
       {watch && isNotified && <MarkNotificationsSeen />}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
+        <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+          ← Dashboard
+        </Link>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Activity</h1>
         <p className="text-zinc-600 dark:text-zinc-400">
           {watch
             ? `Updates by ${watchedNames.join(", ") || watchedPeople().join(", ")}`

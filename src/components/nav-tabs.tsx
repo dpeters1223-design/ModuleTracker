@@ -3,22 +3,22 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// Kept to the everyday three. The app name goes to the Dashboard (home); change
+// orders and activity are reached from the Dashboard and each module's page.
 const TABS = [
-  { href: "/", label: "Dashboard" },
   { href: "/modules", label: "Modules" },
   { href: "/scripts", label: "Scripts" },
   { href: "/tasks", label: "Tasks" },
-  { href: "/changes", label: "Changes" },
-  { href: "/activity", label: "Activity" },
 ];
 
 export function NavTabs() {
   const pathname = usePathname();
   return (
-    <div className="flex h-full min-w-0 gap-5 overflow-x-auto">
+    // overflow-y must be hidden explicitly: overflow-x:auto alone makes the browser
+    // treat the tab underline's 1px overhang as vertical overflow and show a scrollbar.
+    <div className="flex h-full min-w-0 gap-5 overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
       {TABS.map((tab) => {
-        const active =
-          tab.href === "/" ? pathname === "/" : pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+        const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         return (
           <Link
             key={tab.href}
