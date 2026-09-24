@@ -330,7 +330,7 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     weekly vs. recurring weekly tasks.
   - ~~Weekly tasks~~ → turned out to mean Tasks tab filters; built (see below).
   - ~~Backups~~ → built (see below).
-- [x] **Round 2 (built locally 2026-09-24, not yet pushed):**
+- [x] **Round 2 (deployed 2026-09-24):**
   - Module status pills tinted with their phase color (`statusPillStyle`; `STATUS_PHASE`
     moved to `labels.ts`, shared with the prerequisite check).
   - Tasks tab filters: **Due** (Overdue / This week / Next week; weeks are Mon–Sun) and
@@ -346,7 +346,7 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     inside a transaction, verifies counts, rolls back; `--yes` replaces all module data
     (users kept). Rehearsed successfully against a real backup.
   - To deploy: add `BACKUP_OWNER_EMAIL`, `BACKUP_SHARE_WITH`, `CRON_SECRET` to Vercel.
-- [x] **Round 3 (built locally 2026-09-24, not yet pushed):**
+- [x] **Round 3 (deployed 2026-09-24; top bar later trimmed to Modules/Scripts/Tasks):**
   - **Time zone**: `APP_TIMEZONE` (America/New_York); `src/lib/dates.ts` `todayInZone()` etc.
     replace UTC "today" everywhere (overdue, week filters, backup file names).
   - **Backup trim**: backup folder is shared on creation + nightly only (not every change).
