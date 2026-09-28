@@ -221,7 +221,7 @@ export function ChangeOrderList({
             </option>
           ))}
         </select>
-        <div className="min-w-0 flex-1">
+        <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
           <p className={`whitespace-pre-wrap text-sm ${isClosed(c.status) ? "text-zinc-500" : "font-medium"}`}>
             {c.description}
           </p>
@@ -246,7 +246,7 @@ export function ChangeOrderList({
             <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-400">{c.notes}</p>
           )}
         </div>
-        <div className="flex gap-3">
+        <div className="ml-auto flex gap-3 sm:ml-0">
           <button
             type="button"
             className={linkBtn}

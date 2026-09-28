@@ -13,7 +13,7 @@ import { todayInZone } from "@/lib/dates";
 export const metadata: Metadata = { title: "Tasks · ModuleTracker" };
 
 const selectCls =
-  "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm sm:w-auto dark:border-zinc-700 dark:bg-zinc-900";
 
 const DUE_FILTERS = {
   overdue: "Overdue",
@@ -165,7 +165,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
                 {g.items.map((t) => (
                   <li key={t.id} className="flex flex-wrap items-start gap-3 px-3 py-2.5">
                     <TaskStatusSelect moduleId={t.moduleId} taskId={t.id} title={t.title} status={t.status} />
-                    <div className="min-w-0 flex-1">
+                    <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
                       <p className={`text-sm ${t.status === "completed" ? "text-zinc-400 line-through" : "font-medium"}`}>
                         {t.title}
                       </p>
@@ -185,7 +185,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 text-xs ${
+                      className={`ml-auto shrink-0 text-xs sm:ml-0 ${
                         g.key === "overdue" ? "font-medium text-red-700 dark:text-red-400" : "text-zinc-500"
                       }`}
                     >

@@ -20,7 +20,9 @@ const noon = (d: string) => new Date(`${d}T12:00:00Z`);
 
 function Card({ title, href, children }: { title: string; href?: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+    // min-w-0: on phones (one column) a grid item otherwise widens to its longest line
+    // instead of truncating it. Desktop's two equal columns already cap the width.
+    <section className="min-w-0 space-y-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">{title}</h2>
         {href && (
@@ -102,7 +104,7 @@ export default async function DashboardPage() {
           <li key={t.id} className="flex items-start justify-between gap-3 text-sm">
             <div className="min-w-0">
               <p className="truncate font-medium">{t.title}</p>
-              <p className="flex items-center gap-1 text-xs text-zinc-500">
+              <p className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-zinc-500 sm:flex-nowrap sm:gap-1">
                 <PhaseDot phase={t.phase} />
                 <Link href={`/modules/${t.module.id}`} className="truncate hover:underline">
                   {moduleTitle(t.module)}

@@ -16,7 +16,8 @@ export function NavTabs() {
   return (
     // overflow-y must be hidden explicitly: overflow-x:auto alone makes the browser
     // treat the tab underline's 1px overhang as vertical overflow and show a scrollbar.
-    <div className="flex h-full min-w-0 gap-5 overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
+    // Phones: its own full-width row under the app name. sm: back to inline, full height.
+    <div className="order-last flex h-11 w-full min-w-0 gap-5 overflow-x-auto overflow-y-hidden border-t border-zinc-100 [scrollbar-width:none] sm:order-none sm:h-full sm:w-auto sm:border-t-0 dark:border-zinc-800">
       {TABS.map((tab) => {
         const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         return (

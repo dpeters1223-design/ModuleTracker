@@ -37,9 +37,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
           {/* Gold-to-teal strip, echoing the lab logo's swirl */}
           <div className="h-1 bg-gradient-to-r from-gold via-gold-dark to-teal" aria-hidden />
-          <nav className="mx-auto flex h-14 w-full max-w-6xl items-stretch justify-between gap-6 px-4 sm:px-6">
-            <div className="flex min-w-0 items-stretch gap-8">
-              <Link href="/" className="flex items-center font-semibold tracking-tight text-brand dark:text-gold">
+          {/*
+            Phones (< 640px): app name + actions on one row, tabs on a full-width row below
+            (the left group becomes `contents` so the tabs can wrap). Every sm: class restores
+            the desktop layout exactly: one 56px row, name + tabs left, actions right.
+          */}
+          <nav className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 px-4 sm:h-14 sm:flex-nowrap sm:items-stretch sm:gap-6 sm:px-6">
+            <div className="contents sm:flex sm:min-w-0 sm:items-stretch sm:gap-8">
+              <Link href="/" className="flex h-12 items-center font-semibold tracking-tight text-brand sm:h-auto dark:text-gold">
                 ModuleTracker
               </Link>
               {session?.user && <NavTabs />}
@@ -68,7 +73,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                   href="/discovery/new"
                   className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover dark:bg-gold dark:text-brand dark:hover:bg-gold-dark"
                 >
-                  + New module
+                  <span className="sm:hidden">+ New</span>
+                  <span className="hidden sm:inline">+ New module</span>
                 </Link>
                 <span className="hidden text-sm text-zinc-400 xl:inline">{session.user.email}</span>
                 <form

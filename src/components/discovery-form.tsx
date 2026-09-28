@@ -196,7 +196,7 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
         </div>
       )}
 
-      <section className="space-y-5 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
+      <section className="space-y-5 rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 dark:border-zinc-800 dark:bg-zinc-950">
         {step === 0 && (
           <>
             <h2 className="text-lg font-semibold">What is this module about?</h2>
@@ -308,7 +308,7 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
             {form.tools.map((tool, i) => (
               <div
                 key={i}
-                className="space-y-3 rounded-md border border-zinc-200 p-4 dark:border-zinc-800"
+                className="space-y-3 rounded-md border border-zinc-200 p-3 sm:p-4 dark:border-zinc-800"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-zinc-500">Tool {i + 1}</span>
@@ -383,7 +383,7 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
             {form.scenes.map((scene, i) => (
               <div
                 key={i}
-                className="space-y-4 rounded-md border border-zinc-200 p-4 dark:border-zinc-800"
+                className="space-y-4 rounded-md border border-zinc-200 p-3 sm:p-4 dark:border-zinc-800"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">Scene {i + 1}</span>

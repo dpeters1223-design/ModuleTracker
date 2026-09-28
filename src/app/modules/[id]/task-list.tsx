@@ -256,7 +256,7 @@ export function TaskList({
                     title={task.title}
                     status={task.status}
                   />
-                  <div className="min-w-0 flex-1">
+                  <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
                     <p
                       className={`text-sm ${
                         task.status === "completed" ? "text-zinc-400 line-through" : "font-medium"
@@ -289,7 +289,7 @@ export function TaskList({
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-3">
+                  <div className="ml-auto flex gap-3 sm:ml-0">
                     <button
                       type="button"
                       className={linkBtn}
