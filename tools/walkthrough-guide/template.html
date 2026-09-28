@@ -1,0 +1,418 @@
+<title>ModuleTracker Walkthroughs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  :root {
+    --ground: #f5f7f6; --surface: #ffffff; --ink: #1f2a35; --ink-soft: #52606d; --ink-faint: #8a96a1;
+    --line: #dde3e6; --navy: #3d5062; --navy-ink: #ffffff; --gold: #d9a441; --gold-soft: #fddb93;
+    --teal: #5a9e98; --teal-soft: #dcebe9; --tom: #fff3d6;
+    --shadow: 0 1px 2px rgba(31,42,53,.06), 0 10px 28px rgba(31,42,53,.10);
+    --display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+    --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0f151b; --surface: #17202a; --ink: #e7ecef; --ink-soft: #a9b5bf; --ink-faint: #74828e;
+      --line: #273440; --navy: #fddb93; --navy-ink: #1b2530; --gold: #f0c160; --gold-soft: #5a4a24;
+      --teal: #7fbdb7; --teal-soft: #1d3533; --tom: #2c2616; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0f151b; --surface: #17202a; --ink: #e7ecef; --ink-soft: #a9b5bf; --ink-faint: #74828e;
+    --line: #273440; --navy: #fddb93; --navy-ink: #1b2530; --gold: #f0c160; --gold-soft: #5a4a24;
+    --teal: #7fbdb7; --teal-soft: #1d3533; --tom: #2c2616; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.4);
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .strip { height: 4px; background: linear-gradient(90deg, #fddb93, #d9a441 45%, #76ada9); }
+  .wrap { max-width: 1060px; margin: 0 auto; padding-inline: 20px; padding-block: 36px 64px; }
+  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--teal); }
+  h1 { font: 700 clamp(32px, 5.4vw, 52px)/1.03 var(--display); letter-spacing: -.015em; margin: 0; text-wrap: balance; color: var(--navy); }
+  h2 { font: 600 20px/1.2 var(--display); margin: 0 0 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .lead { margin: 0; max-width: 58ch; color: var(--ink-soft); font-size: 18px; }
+  .btn { font: 600 15px/1 var(--body); padding: 12px 16px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+  .btn:hover { border-color: var(--ink-faint); }
+  .btn:focus-visible, .job:focus-visible, .link:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .btn.primary { background: var(--navy); border-color: var(--navy); color: var(--navy-ink); }
+  .btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .link { background: none; border: 0; padding: 0; font: 500 14px var(--body); color: var(--ink-soft); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ── Landing ── */
+  .hero { display: grid; gap: 14px; margin-bottom: 40px; }
+  .features { display: grid; gap: 44px; }
+  .feature { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; align-items: center; }
+  .feature:nth-child(even) .copy { order: 2; }
+  .copy { display: grid; gap: 8px; }
+  .copy h3 { margin: 0; font: 600 clamp(22px, 3vw, 28px)/1.15 var(--display); text-wrap: balance; }
+  .copy p { margin: 0; color: var(--ink-soft); max-width: 42ch; }
+  .shot { margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: #fff; aspect-ratio: 1200 / 760; }
+  /* Landing images zoom into their interesting part: --z scale, --ox/--oy focus point. */
+  .shot img { display: block; width: 100%; height: 100%; object-fit: cover; transform-origin: var(--ox, 50%) var(--oy, 0%); transform: scale(var(--z, 1)); }
+  .also { margin: 40px 0 0; padding: 16px 18px; border-radius: 12px; background: var(--teal-soft); color: var(--ink); display: flex; flex-wrap: wrap; gap: 6px 22px; }
+  .also b { font-weight: 600; }
+  .cta { margin-top: 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+
+  /* ── Walkthroughs ── */
+  .top { display: grid; gap: 10px; margin-bottom: 26px; }
+  .tag { font: 500 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px; background: var(--tom); color: var(--ink); border: 1px solid var(--gold); }
+  .group { margin-bottom: 26px; }
+  .jobs { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .job { text-align: left; font: inherit; color: inherit; cursor: pointer; display: grid; gap: 6px; padding: 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); transition: border-color .15s, transform .15s; }
+  .job:hover { border-color: var(--teal); transform: translateY(-1px); }
+  .job[aria-pressed="true"] { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
+  .job.tom { background: var(--tom); }
+  .job.feat { border-color: var(--teal); }
+  .job b { font: 600 17px/1.25 var(--display); }
+  .job span { color: var(--ink-soft); font-size: 14px; }
+  .job small { font: 500 11px/1 var(--mono); color: var(--ink-faint); letter-spacing: .04em; }
+
+  .player { margin-top: 30px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; scroll-margin-top: 16px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .bar h3 { margin: 0; font: 600 18px/1.2 var(--display); }
+  .dots { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dot { width: 22px; height: 6px; border-radius: 3px; background: var(--line); border: 0; padding: 0; cursor: pointer; }
+  .dot.done { background: var(--teal); }
+  .dot.now { background: var(--gold); }
+  .stage { position: relative; aspect-ratio: 1200 / 760; max-width: 100%; overflow: hidden; background: #fff; }
+  /* The "camera": everything that zooms together (both image layers, hotspot, cursor). */
+  .cam { position: absolute; inset: 0; transform-origin: 50% 50%; transition: transform .9s cubic-bezier(.45,0,.25,1); }
+  .cam img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: opacity .45s ease; }
+  .hot { position: absolute; border-radius: 10px; border: 3px solid var(--gold); background: rgba(253,219,147,.18); cursor: pointer; padding: 0; animation: pulse 1.6s ease-out infinite; }
+  .hot:focus-visible { outline: 3px solid var(--navy); outline-offset: 3px; }
+  .watching .hot { animation: none; opacity: .75; cursor: default; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(217,164,65,.55); } 80%, 100% { box-shadow: 0 0 0 16px rgba(217,164,65,0); } }
+  .cursor { position: absolute; width: 22px; height: 22px; margin: -2px 0 0 -3px; pointer-events: none; z-index: 5; transition: left .8s cubic-bezier(.45,0,.25,1), top .8s cubic-bezier(.45,0,.25,1), transform .12s; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+  .cursor.press { transform: scale(.82); }
+  .ripple { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid var(--gold); pointer-events: none; z-index: 4; animation: rip .55s ease-out forwards; }
+  @keyframes rip { from { transform: scale(.4); opacity: 1; } to { transform: scale(3.4); opacity: 0; } }
+  .progress { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--gold); width: 0; transition: width .5s ease; z-index: 6; }
+  .caption { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; align-items: baseline; padding: 16px 18px 6px; }
+  .count { font: 500 12px/1 var(--mono); color: var(--ink-faint); letter-spacing: .04em; white-space: nowrap; }
+  .say { margin: 0; font-size: 18px; line-height: 1.45; max-width: 65ch; transition: opacity .3s; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px 18px; align-items: center; }
+  .controls .btn { font-size: 14px; padding: 10px 14px; }
+  .spacer { flex: 1; }
+  .hint { font-size: 13px; color: var(--ink-faint); }
+  .finish { display: none; }
+  .finish.show { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 0 18px 18px; }
+  .finish a { color: var(--ink); font-weight: 600; }
+  .cheat { margin-top: 40px; display: grid; gap: 12px; }
+  .cheat ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px 24px; }
+  .cheat li { padding-left: 16px; position: relative; color: var(--ink-soft); }
+  .cheat li::before { content: ""; position: absolute; left: 0; top: .6em; width: 7px; height: 7px; border-radius: 2px; background: var(--teal); }
+  .cheat li b { color: var(--ink); font-weight: 600; }
+  footer { margin-top: 36px; font-size: 13px; color: var(--ink-faint); }
+
+  @media (max-width: 760px) {
+    .feature { grid-template-columns: 1fr; gap: 14px; }
+    .feature:nth-child(even) .copy { order: 0; }
+  }
+  @media (max-width: 640px) {
+    .caption { grid-template-columns: 1fr; }
+    .say { font-size: 16px; }
+    .hint { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hot { animation: none; }
+    .cam, .cam img, .cursor, .progress, .say { transition: none; }
+    .ripple { display: none; }
+    .job { transition: none; }
+  }
+</style>
+
+<div class="strip" aria-hidden="true"></div>
+
+<!-- ───────────── Landing ───────────── -->
+<main class="wrap" id="landing">
+  <section class="hero">
+    <span class="eyebrow">Meet ModuleTracker</span>
+    <h1>Plan, script and track every VR module in one place.</h1>
+    <p class="lead">ModuleTracker replaces the pile of planning docs and spreadsheets with one shared app. Three things make it different:</p>
+  </section>
+
+  <div class="features">
+    <article class="feature">
+      <div class="copy">
+        <span class="eyebrow">Module creation</span>
+        <h3>Start with what the expert knows</h3>
+        <p>A guided Discovery Form walks through the topic, learning objectives, tools, and each scene: who speaks, what's clicked, and the quiz questions. No blank page.</p>
+      </div>
+      <figure class="shot"><img src="shots/scene-3-quiz.png" style="--z:1.45;--ox:50%;--oy:30%" alt="A scene in the Discovery Form: what happens in it, and a quiz question with the correct answer ticked"></figure>
+    </article>
+    <article class="feature">
+      <div class="copy">
+        <span class="eyebrow">Scripting</span>
+        <h3>The script sets itself up</h3>
+        <p>One click turns the Discovery Form into a Google Doc laid out scene by scene, saved in a shared team folder, so everyone writes in the same copy.</p>
+      </div>
+      <figure class="shot"><img src="shots/doc-1-top.png" style="--z:1.45;--ox:50%;--oy:28%" alt="A script Doc generated from the Discovery Form"></figure>
+    </article>
+    <article class="feature">
+      <div class="copy">
+        <span class="eyebrow">Multiple views</span>
+        <h3>See production your way</h3>
+        <p>Every task as a List, a Board you drag cards across, or a Timeline. For one module, or all of them at once.</p>
+      </div>
+      <figure class="shot"><img src="shots/views-4-all.png" style="--z:1.2;--ox:60%;--oy:25%" alt="The timeline of every module's tasks, colored by phase"></figure>
+    </article>
+  </div>
+
+  <p class="also"><span><b>Undo</b> for every change</span><span><b>Automatic backups</b></span><span><b>Works on your phone</b></span></p>
+
+  <div class="cta">
+    <button class="btn primary" id="go" type="button">Get started using the app →</button>
+    <span class="hint">Short, tap-through walkthroughs. Under a minute each.</span>
+  </div>
+</main>
+
+<!-- ───────────── Walkthroughs ───────────── -->
+<main class="wrap" id="guide" hidden>
+  <header class="top">
+    <button class="link" id="about" type="button">← About ModuleTracker</button>
+    <h1>Pick a job. Tap through it on the real app.</h1>
+    <p class="lead">Tap the glowing spot to go to the next step, or press <b>Watch</b> to see it play. The app lives at <a href="https://vr-module-tracker.vercel.app" target="_blank" rel="noopener">vr-module-tracker.vercel.app</a>; sign in with your Cornell Google account.</p>
+  </header>
+
+  <section class="group" aria-labelledby="g-tom">
+    <h2 id="g-tom">Starting a module <span class="tag">Tom, start here</span></h2>
+    <div class="jobs" id="jobs-tom"></div>
+  </section>
+  <section class="group" aria-labelledby="g-all">
+    <h2 id="g-all">Keeping production moving</h2>
+    <div class="jobs" id="jobs-all"></div>
+  </section>
+
+  <section class="player" id="player" aria-live="polite">
+    <div class="bar">
+      <h3 id="p-title"></h3>
+      <div class="dots" id="p-dots" role="group" aria-label="Steps"></div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="cam" id="cam">
+        <img id="img-a" alt="">
+        <img id="img-b" alt="" style="opacity:0">
+        <button class="hot" id="p-hot" type="button" aria-label="Go to the next step"></button>
+        <svg class="cursor" id="p-cursor" viewBox="0 0 24 24" hidden aria-hidden="true">
+          <path d="M4 2l15 10.5-6.6 1.3 3.9 7.3-2.7 1.4-3.9-7.3L4 20z" fill="#fff" stroke="#1f2a35" stroke-width="1.4" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="progress" id="p-prog"></div>
+    </div>
+    <div class="caption">
+      <span class="count" id="p-count"></span>
+      <p class="say" id="p-say"></p>
+    </div>
+    <div class="controls">
+      <button class="btn" id="b-back" type="button">← Back</button>
+      <button class="btn primary" id="b-next" type="button">Next →</button>
+      <button class="btn" id="b-watch" type="button">▶ Watch</button>
+      <span class="spacer"></span>
+      <span class="hint">Tip: arrow keys work too.</span>
+    </div>
+    <div class="finish" id="p-finish">
+      <span>That's it.</span>
+      <a href="https://vr-module-tracker.vercel.app" target="_blank" rel="noopener">Try it in the app →</a>
+      <button class="btn" id="b-again" type="button">Replay</button>
+    </div>
+  </section>
+
+  <section class="cheat" aria-labelledby="g-cheat">
+    <h2 id="g-cheat">Good to know</h2>
+    <ul>
+      <li><b>Three tabs:</b> Modules, Scripts and Tasks. The app name takes you back to the Dashboard.</li>
+      <li><b>Rough is fine.</b> Everything in the Discovery Form can be edited later from the module's page.</li>
+      <li><b>One copy of each script</b> lives in a shared Google Drive folder; the app links to it.</li>
+      <li><b>Nothing is lost:</b> every change is recorded, can be undone, and is backed up automatically.</li>
+      <li><b>Works on phones</b> too. Add the page to your home screen to open it like an app.</li>
+    </ul>
+  </section>
+  <footer>Screens show example modules, not real ones.</footer>
+</main>
+
+<script>
+  // Hotspot rectangles (% of each 1200×760 screenshot), generated from the capture run.
+  const HOT = /*HOT*/{};
+  const JOBS = [
+    { id: "new", tom: true, title: "Start a new module", blurb: "The Discovery Form: what it covers, objectives, tools.", steps: [
+      ["new-1-dashboard", "Click <b>+ New module</b> at the top right. It opens the Discovery Form."],
+      ["new-2-about", "Name the module and describe it in a sentence or two. Rough is fine. Then <b>Next</b>."],
+      ["new-3-objectives", "List what learners should be able to do afterwards. <b>+ Add objective</b> for each one."],
+      ["new-4-tools", "Add each tool, and the features of it you'll talk about."],
+      ["scene-1-basics", "Outline the scenes, one card each. (The next walkthrough covers this step.)"],
+      ["new-5-submit", "Check it over on Review and <b>Submit</b>. You can change anything later."],
+    ]},
+    { id: "scenes", tom: true, title: "Describe your scenes and quizzes", blurb: "Who speaks, what's clicked, and the quiz questions.", steps: [
+      ["scene-1-basics", "One card per scene, in viewing order: title, location, who's speaking, and the scene type."],
+      ["scene-2-activities", "Tick what happens in the scene: clicks, pop-ups, narration, a quiz. Add a short note to any of them."],
+      ["scene-3-quiz", "Ticking <b>Question / quiz</b> opens the quiz: type the question and answers, and tick the right one."],
+      ["scene-4-add", "<b>+ Add scene</b> for the next one. Up and Down reorder them."],
+    ]},
+    { id: "script", tom: true, title: "Start and write the script", blurb: "One click makes a Google Doc laid out from your scenes.", steps: [
+      ["script-1-list", "The <b>Scripts</b> tab lists every module's script. Pick one that says <b>Not started</b>."],
+      ["script-2-start", "<b>Start script from Discovery Form</b> creates the Google Doc for you."],
+      ["script-3-open", "The script is now linked to the module. Open it from here any time."],
+      ["doc-1-top", "It opens as a Google Doc, already filled in with the module's details and learning objectives."],
+      ["doc-2-scene", "Below that, a section for each scene: speaker, tool, and what's clicked, straight from the Discovery Form."],
+      ["doc-3-narration", "Write the narration where it says to. The whole team works in this same copy."],
+    ]},
+    { id: "views", feat: true, title: "Three ways to see your tasks", blurb: "List, Board and Timeline, for one module or all of them.", steps: [
+      ["views-1-list", "Each module shows its tasks three ways. <b>List</b> is the everyday view: add, edit and tick things off."],
+      ["views-2-board", "<b>Board</b> puts tasks in columns by phase. Drag a card to move it along."],
+      ["views-3-timeline", "<b>Timeline</b> is a Gantt chart: each task is a bar from start to due date, with a line for today."],
+      ["views-4-all", "On the <b>Modules</b> tab, Timeline shows every module at once, so overlaps are easy to spot."],
+      ["views-5-allboard", "And <b>Board</b> there shows a board for each module, so you can see everything in motion."],
+    ]},
+    { id: "tasks", title: "Update your tasks", blurb: "Status, dragging, and adding tasks to a phase.", steps: [
+      ["tasks-1-status", "Change a task's status right from its colored pill."],
+      ["tasks-2-drag", "On the <b>Board</b>, drag a card to another phase."],
+      ["tasks-3-plus", "The <b>+</b> next to a column's count adds a task straight into that phase."],
+      ["tasks-4-timeline", "On the <b>Timeline</b>, hover a bar for the task's dates, owner and status."],
+    ]},
+    { id: "due", title: "See what's due", blurb: "The Dashboard, task filters, and module status.", steps: [
+      ["due-1-dashboard", "The Dashboard shows what's overdue and due this week. Click a number to see the list."],
+      ["due-2-filters", "On <b>Tasks</b>, filter by owner, module, when it's due, and phase."],
+      ["due-3-status", "A module's status shows where it is in production. Moving it forward checks nothing was left undone."],
+    ]},
+    { id: "undo", title: "Fix a mistake", blurb: "Every change is recorded and can be undone.", steps: [
+      ["undo-1-activity", "The Activity page (Dashboard → Recent activity) lists every change. <b>Undo</b> puts it back."],
+    ]},
+  ].map((j) => ({ ...j, steps: j.steps.filter(([k]) => HOT[k]) })).filter((j) => j.steps.length);
+
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let job = JOBS[0], i = 0, playing = false, timers = [], front = "a", cursorAt = null;
+
+  // Landing ⇄ walkthroughs (#start opens the walkthroughs directly).
+  function show(guide) {
+    $("landing").hidden = guide; $("guide").hidden = !guide;
+    if (!guide) stop();
+    try { history.replaceState(null, "", guide ? "#start" : location.pathname); } catch {}
+    scrollTo({ top: 0 });
+  }
+  $("go").addEventListener("click", () => show(true));
+  $("about").addEventListener("click", () => show(false));
+
+  new Set(JOBS.flatMap((j) => j.steps.map((s) => s[0]))).forEach((k) => { const im = new Image(); im.src = `shots/${k}.png`; });
+
+  function tile(j) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "job" + (j.tom ? " tom" : "") + (j.feat ? " feat" : ""); b.dataset.job = j.id;
+    b.innerHTML = `<b>${j.title}</b><span>${j.blurb}</span><small>${j.steps.length} step${j.steps.length === 1 ? "" : "s"} · about ${Math.max(15, j.steps.length * 10)} sec</small>`;
+    b.addEventListener("click", () => { open(j); $("player").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); });
+    return b;
+  }
+  JOBS.forEach((j) => $(j.tom ? "jobs-tom" : "jobs-all").appendChild(tile(j)));
+
+  const center = (k) => { const [x, y, w, h] = HOT[k]; return [x + w / 2, y + h / 2]; };
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+
+  // Swap the screenshot with a cross-fade between two stacked layers.
+  function setImage(key, fade) {
+    const next = front === "a" ? "b" : "a";
+    const incoming = $("img-" + next), outgoing = $("img-" + front);
+    incoming.src = `shots/${key}.png`;
+    if (fade && !reduce) { incoming.style.opacity = 1; outgoing.style.opacity = 0; }
+    else { incoming.style.transition = "none"; outgoing.style.transition = "none"; incoming.style.opacity = 1; outgoing.style.opacity = 0; incoming.getBoundingClientRect(); incoming.style.transition = outgoing.style.transition = ""; }
+    front = next;
+  }
+  function zoom(on) {
+    const cam = $("cam");
+    if (reduce || !on) { cam.style.transform = "scale(1)"; return; }
+    const [x, y] = center(job.steps[i][0]);
+    cam.style.transformOrigin = `${x}% ${y}%`;
+    cam.style.transform = `scale(${matchMedia("(max-width: 640px)").matches ? 1.7 : 1.35})`;
+  }
+
+  function render(fade = false) {
+    const [key, text] = job.steps[i];
+    const [x, y, w, h] = HOT[key];
+    $("p-title").textContent = job.title;
+    setImage(key, fade);
+    $("img-" + front).alt = text.replace(/<[^>]+>/g, "");
+    Object.assign($("p-hot").style, { left: x + "%", top: y + "%", width: w + "%", height: h + "%" });
+    $("p-count").textContent = `Step ${i + 1} of ${job.steps.length}`;
+    $("p-say").innerHTML = text;
+    $("b-back").disabled = i === 0;
+    $("b-next").textContent = i === job.steps.length - 1 ? "Done ✓" : "Next →";
+    $("p-prog").style.width = playing ? `${((i + 1) / job.steps.length) * 100}%` : "0";
+    $("p-dots").innerHTML = "";
+    job.steps.forEach((_, n) => {
+      const d = document.createElement("button");
+      d.type = "button"; d.className = "dot" + (n < i ? " done" : n === i ? " now" : "");
+      d.setAttribute("aria-label", `Step ${n + 1}`);
+      d.addEventListener("click", () => { stop(); i = n; finish(false); render(true); });
+      $("p-dots").appendChild(d);
+    });
+    document.querySelectorAll(".job").forEach((t) => t.setAttribute("aria-pressed", String(t.dataset.job === job.id)));
+  }
+  const finish = (on) => $("p-finish").classList.toggle("show", on);
+  function open(j) { stop(); job = j; i = 0; cursorAt = null; finish(false); render(); }
+  function next() { if (i < job.steps.length - 1) { i++; render(true); } else { finish(true); stop(); } }
+  function back() { stop(); if (i > 0) { i--; finish(false); render(true); } }
+
+  // ── Watch mode: zoom toward the target, glide the cursor there, click, cross-fade on. ──
+  function ripple([x, y]) {
+    if (reduce) return;
+    const r = document.createElement("span");
+    r.className = "ripple"; r.style.left = x + "%"; r.style.top = y + "%";
+    $("cam").appendChild(r); setTimeout(() => r.remove(), 650);
+  }
+  function placeCursor([x, y], instant) {
+    const c = $("p-cursor");
+    if (instant) c.style.transition = "none";
+    c.style.left = x + "%"; c.style.top = y + "%";
+    if (instant) { c.getBoundingClientRect(); c.style.transition = ""; }
+    cursorAt = [x, y];
+  }
+  function step() {
+    if (!playing) return;
+    const target = center(job.steps[i][0]);
+    zoom(true);
+    later(() => placeCursor(target), reduce ? 0 : 350);              // glide while zooming in
+    later(() => { $("p-cursor").classList.add("press"); ripple(target); }, reduce ? 300 : 1350);
+    later(() => $("p-cursor").classList.remove("press"), reduce ? 420 : 1480);
+    later(() => {                                                   // read time, then move on
+      if (!playing) return;
+      if (i < job.steps.length - 1) { zoom(false); i++; render(true); later(step, reduce ? 600 : 1000); }
+      else { zoom(false); later(() => { stop(); finish(true); }, 900); }
+    }, reduce ? 2600 : 3300);
+  }
+  function play() {
+    finish(false);
+    if (i === job.steps.length - 1) { i = 0; }
+    playing = true;
+    $("stage").classList.add("watching");
+    $("b-watch").textContent = "❚❚ Pause";
+    render(false);
+    $("p-cursor").hidden = false;
+    placeCursor(cursorAt ?? [50, 94], true);                         // start where it last was
+    later(step, 300);
+  }
+  function stop() {
+    playing = false; timers.forEach(clearTimeout); timers = [];
+    $("stage").classList.remove("watching");
+    $("b-watch").textContent = "▶ Watch";
+    $("p-cursor").hidden = true; $("p-cursor").classList.remove("press");
+    $("p-prog").style.width = "0";
+    zoom(false);
+  }
+
+  $("p-hot").addEventListener("click", () => { if (playing) return; ripple(center(job.steps[i][0])); next(); });
+  $("b-next").addEventListener("click", () => { stop(); next(); });
+  $("b-back").addEventListener("click", back);
+  $("b-watch").addEventListener("click", () => (playing ? stop() : play()));
+  $("b-again").addEventListener("click", () => { i = 0; cursorAt = null; render(); play(); });
+  document.addEventListener("keydown", (e) => {
+    if ($("guide").hidden || e.target.closest("input, textarea, select")) return;
+    if (e.key === "ArrowRight") { stop(); next(); }
+    if (e.key === "ArrowLeft") back();
+  });
+
+  render();
+  if (location.hash === "#start") show(true);
+</script>

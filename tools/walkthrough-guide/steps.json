@@ -1,0 +1,310 @@
+[
+  {
+    "job": "new-module",
+    "id": "new-1-dashboard",
+    "img": "shots/new-1-dashboard.png",
+    "hot": {
+      "x": 80.39,
+      "y": 1.32,
+      "w": 10.49,
+      "h": 5.79
+    }
+  },
+  {
+    "job": "new-module",
+    "id": "new-2-about",
+    "img": "shots/new-2-about.png",
+    "hot": {
+      "x": 74.43,
+      "y": 85,
+      "w": 6.07,
+      "h": 6.32
+    }
+  },
+  {
+    "job": "new-module",
+    "id": "new-3-objectives",
+    "img": "shots/new-3-objectives.png",
+    "hot": {
+      "x": 21.58,
+      "y": 56.45,
+      "w": 11.78,
+      "h": 6.58
+    }
+  },
+  {
+    "job": "new-module",
+    "id": "new-4-tools",
+    "img": "shots/new-4-tools.png",
+    "hot": {
+      "x": 21.58,
+      "y": 73.29,
+      "w": 9.06,
+      "h": 6.58
+    }
+  },
+  {
+    "job": "scenes",
+    "id": "scene-1-basics",
+    "img": "shots/scene-1-basics.png",
+    "hot": {
+      "x": 23,
+      "y": 46.84,
+      "w": 26.83,
+      "h": 6.32
+    }
+  },
+  {
+    "job": "scenes",
+    "id": "scene-2-activities",
+    "img": "shots/scene-2-activities.png",
+    "hot": {
+      "x": 50.17,
+      "y": 47.89,
+      "w": 25.75,
+      "h": 4.21
+    }
+  },
+  {
+    "job": "scenes",
+    "id": "scene-3-quiz",
+    "img": "shots/scene-3-quiz.png",
+    "hot": {
+      "x": 25,
+      "y": 46.45,
+      "w": 50,
+      "h": 7.11
+    }
+  },
+  {
+    "job": "scenes",
+    "id": "scene-4-add",
+    "img": "shots/scene-4-add.png",
+    "hot": {
+      "x": 21.58,
+      "y": 73.29,
+      "w": 10.29,
+      "h": 6.58
+    }
+  },
+  {
+    "job": "new-module",
+    "id": "new-5-submit",
+    "img": "shots/new-5-submit.png",
+    "hot": {
+      "x": 73.2,
+      "y": 81.45,
+      "w": 7.3,
+      "h": 6.32
+    }
+  },
+  {
+    "job": "script",
+    "id": "script-1-list",
+    "img": "shots/script-1-list.png",
+    "hot": {
+      "x": 14.25,
+      "y": 40.26,
+      "w": 71.5,
+      "h": 10.53
+    }
+  },
+  {
+    "job": "script",
+    "id": "script-2-start",
+    "img": "shots/script-2-start.png",
+    "hot": {
+      "x": 20.92,
+      "y": 34.74,
+      "w": 19.73,
+      "h": 6.58
+    }
+  },
+  {
+    "job": "script",
+    "id": "script-3-open",
+    "img": "shots/script-3-open.png",
+    "hot": {
+      "x": 20.92,
+      "y": 32.5,
+      "w": 44.12,
+      "h": 3.82
+    }
+  },
+  {
+    "job": "tasks",
+    "id": "tasks-1-status",
+    "img": "shots/tasks-1-status.png",
+    "hot": {
+      "x": 20.58,
+      "y": 47.89,
+      "w": 9.08,
+      "h": 4.21
+    }
+  },
+  {
+    "job": "tasks",
+    "id": "tasks-2-drag",
+    "img": "shots/tasks-2-drag.png",
+    "hot": {
+      "x": 20.17,
+      "y": 40.13,
+      "w": 16.83,
+      "h": 19.74
+    }
+  },
+  {
+    "job": "tasks",
+    "id": "tasks-3-plus",
+    "img": "shots/tasks-3-plus.png",
+    "hot": {
+      "x": 48.5,
+      "y": 47.63,
+      "w": 3,
+      "h": 4.74
+    }
+  },
+  {
+    "job": "tasks",
+    "id": "tasks-4-timeline",
+    "img": "shots/tasks-4-timeline.png",
+    "hot": {
+      "x": 47.34,
+      "y": 48.03,
+      "w": 6.01,
+      "h": 3.95
+    }
+  },
+  {
+    "job": "due",
+    "id": "due-1-dashboard",
+    "img": "shots/due-1-dashboard.png",
+    "hot": {
+      "x": 22.1,
+      "y": 21.97,
+      "w": 18.6,
+      "h": 13.42
+    }
+  },
+  {
+    "job": "due",
+    "id": "due-2-filters",
+    "img": "shots/due-2-filters.png",
+    "hot": {
+      "x": 72.33,
+      "y": 21.97,
+      "w": 11.92,
+      "h": 5.79
+    }
+  },
+  {
+    "job": "due",
+    "id": "due-3-status",
+    "img": "shots/due-3-status.png",
+    "hot": {
+      "x": 19.5,
+      "y": 25.92,
+      "w": 11.25,
+      "h": 4.47
+    }
+  },
+  {
+    "job": "undo",
+    "id": "undo-1-activity",
+    "img": "shots/undo-1-activity.png",
+    "hot": {
+      "x": 79.86,
+      "y": 37.37,
+      "w": 4.89,
+      "h": 4.47
+    }
+  },
+  {
+    "job": "views",
+    "id": "views-1-list",
+    "img": "shots/views-1-list.png",
+    "hot": {
+      "x": 64.53,
+      "y": 46.97,
+      "w": 4.56,
+      "h": 4.74
+    }
+  },
+  {
+    "job": "views",
+    "id": "views-2-board",
+    "img": "shots/views-2-board.png",
+    "hot": {
+      "x": 68.42,
+      "y": 46.97,
+      "w": 5.67,
+      "h": 4.74
+    }
+  },
+  {
+    "job": "views",
+    "id": "views-3-timeline",
+    "img": "shots/views-3-timeline.png",
+    "hot": {
+      "x": 73.42,
+      "y": 46.97,
+      "w": 6.74,
+      "h": 4.74
+    }
+  },
+  {
+    "job": "views",
+    "id": "views-4-all",
+    "img": "shots/views-4-all.png",
+    "hot": {
+      "x": 80.13,
+      "y": 14.61,
+      "w": 7.37,
+      "h": 5.26
+    }
+  },
+  {
+    "job": "views",
+    "id": "views-5-allboard",
+    "img": "shots/views-5-allboard.png",
+    "hot": {
+      "x": 74.69,
+      "y": 14.61,
+      "w": 6.11,
+      "h": 5.26
+    }
+  },
+  {
+    "job": "doc",
+    "id": "doc-1-top",
+    "img": "shots/doc-1-top.png",
+    "hot": {
+      "x": 22,
+      "y": 18.55,
+      "w": 56,
+      "h": 14.74
+    }
+  },
+  {
+    "job": "doc",
+    "id": "doc-2-scene",
+    "img": "shots/doc-2-scene.png",
+    "hot": {
+      "x": 22,
+      "y": 46.68,
+      "w": 56,
+      "h": 6.67
+    }
+  },
+  {
+    "job": "doc",
+    "id": "doc-3-narration",
+    "img": "shots/doc-3-narration.png",
+    "hot": {
+      "x": 22,
+      "y": 46.37,
+      "w": 56,
+      "h": 7.17
+    }
+  }
+]

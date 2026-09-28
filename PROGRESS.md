@@ -380,6 +380,13 @@ The docs themselves stay out of the repo; this is the summary that matters for t
       Migration `20260926150000_scene_interactions` was applied **over HTTPS via the Neon
       adapter** (hospital network blocked port 5432) and recorded in `_prisma_migrations`
       with the file's sha256 — `prisma migrate status` should show it as applied.
+- [~] **Walkthrough guide / user manual (in progress — David paused it 2026-09-28 to handle
+      something else; come back to it).** Artifact page https://claude.ai/artifact/LA9Pk3dpPqSkgydLtuGjib
+      (v2): "Meet ModuleTracker" landing (3 features + Get started) → tap-through walkthroughs on
+      real screenshots with hotspots and a synthesized "Watch" mode (zoom, cursor, cross-fade).
+      Audience: Tom (minimal reading) + boss/team. Source in `tools/walkthrough-guide/`.
+      David's direction so far: emphasize List/Board/Timeline, no "no emails" claim (email is
+      coming), keep refining. Still private — David shares it himself.
   - Three `[Example]` modules (EX-PVD1, EX-PVD2, EX-MET1) were seeded 2026-09-25 as demo
     data (all old data cleared first). Their scenes don't have structured activities yet.
 - [ ] **Jay as Drive owner (on hold until Jay confirms the test script):** code now uses
