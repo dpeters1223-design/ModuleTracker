@@ -10,7 +10,7 @@ import { ActivityList, MarkNotificationsSeen } from "@/components/activity-list"
 export const metadata: Metadata = { title: "Activity · ModuleTracker" };
 
 const selectCls =
-  "w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm sm:w-auto dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm sm:w-auto dark:border-zinc-600 dark:bg-zinc-900";
 
 export default async function ActivityPage(props: PageProps<"/activity">) {
   await connection();
@@ -79,7 +79,7 @@ export default async function ActivityPage(props: PageProps<"/activity">) {
         {watch && <input type="hidden" name="watch" value="1" />}
         <button
           type="submit"
-          className="rounded-md border border-zinc-300 px-3 py-1.5 font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="rounded-md border border-zinc-300 px-3 py-1.5 font-medium hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
         >
           Apply
         </button>

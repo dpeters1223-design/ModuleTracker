@@ -84,7 +84,7 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
         {deleted && (
           <div
             role="status"
-            className="mb-6 rounded-md border border-zinc-300 bg-white p-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
+            className="mb-6 rounded-md border border-zinc-300 bg-white p-3 text-sm text-zinc-700 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-300"
           >
             Module deleted.
           </div>
@@ -113,7 +113,7 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
       </div>
 
       {modules.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
+        <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-600">
           <p className="font-medium">No modules yet</p>
           <p className="mt-1 text-sm text-zinc-500">
             <Link href="/discovery/new" className="underline underline-offset-4">
@@ -164,7 +164,7 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
           )}
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
+        <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
           {modules.map((m) => (
             <li key={m.id}>
               <Link

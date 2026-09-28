@@ -19,11 +19,11 @@ const DRAFT_KEY = "discovery-draft-v1";
 const inputCls =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm " +
   "focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200 " +
-  "dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-zinc-800";
+  "dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:ring-zinc-800";
 const btnCls =
   "rounded-md px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50";
 const primaryBtn = `${btnCls} bg-brand text-white hover:bg-brand-hover dark:bg-gold dark:text-brand dark:hover:bg-gold-dark`;
-const secondaryBtn = `${btnCls} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800`;
+const secondaryBtn = `${btnCls} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800`;
 const linkBtn = "text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100";
 
 function Field({
@@ -196,7 +196,7 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
         </div>
       )}
 
-      <section className="space-y-5 rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 dark:border-zinc-800 dark:bg-zinc-950">
+      <section className="space-y-5 rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 dark:border-zinc-700 dark:bg-zinc-950">
         {step === 0 && (
           <>
             <h2 className="text-lg font-semibold">What is this module about?</h2>
@@ -308,9 +308,9 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
             {form.tools.map((tool, i) => (
               <div
                 key={i}
-                className="space-y-3 rounded-md border border-zinc-300 shadow-sm p-3 sm:p-4 dark:border-zinc-700"
+                className="space-y-3 rounded-md border border-zinc-300 shadow-sm p-3 sm:p-4 dark:border-zinc-600"
               >
-                <div className="flex items-center justify-between -mx-3 -mt-3 rounded-t-md border-b border-zinc-200 bg-zinc-100 px-3 py-2 sm:-mx-4 sm:-mt-4 sm:px-4 dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="flex items-center justify-between -mx-3 -mt-3 rounded-t-md border-b border-zinc-200 bg-zinc-100 px-3 py-2 sm:-mx-4 sm:-mt-4 sm:px-4 dark:border-zinc-600 dark:bg-zinc-800">
                   <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Tool {i + 1}</span>
                   {form.tools.length > 1 && (
                     <button
@@ -383,9 +383,9 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
             {form.scenes.map((scene, i) => (
               <div
                 key={i}
-                className="space-y-4 rounded-md border border-zinc-300 shadow-sm p-3 sm:p-4 dark:border-zinc-700"
+                className="space-y-4 rounded-md border border-zinc-300 shadow-sm p-3 sm:p-4 dark:border-zinc-600"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 -mx-3 -mt-3 rounded-t-md border-b border-zinc-200 bg-zinc-100 px-3 py-2 sm:-mx-4 sm:-mt-4 sm:px-4 dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="flex flex-wrap items-center justify-between gap-2 -mx-3 -mt-3 rounded-t-md border-b border-zinc-200 bg-zinc-100 px-3 py-2 sm:-mx-4 sm:-mt-4 sm:px-4 dark:border-zinc-600 dark:bg-zinc-800">
                   <span className="font-semibold">Scene {i + 1}</span>
                   <div className="flex gap-3">
                     <button
@@ -495,7 +495,7 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
                 </Field>
                 {/* Optional storyboard detail; opens by itself if any of it is filled in. */}
                 <details
-                  className="rounded-md border border-dashed border-zinc-300 p-3 dark:border-zinc-700"
+                  className="rounded-md border border-dashed border-zinc-300 p-3 dark:border-zinc-600"
                   open={Boolean(scene.description || scene.talent || scene.learningObjectives || scene.mediaAssets)}
                 >
                   <summary className="cursor-pointer text-sm font-medium text-zinc-600 dark:text-zinc-300">

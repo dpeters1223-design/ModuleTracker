@@ -131,7 +131,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
           </h1>
           <Link
             href={`/modules/${mod.id}/edit`}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             Edit
           </Link>
@@ -146,7 +146,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
 
       <Link
         href={`/scripts/${mod.id}`}
-        className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+        className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:bg-zinc-900"
       >
         <span>
           <span className="font-medium">Script: </span>
@@ -266,7 +266,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
           {mod.scenes.map((s) => (
             <li
               key={s.id}
-              className="rounded-lg border border-zinc-200 p-4 text-sm dark:border-zinc-800"
+              className="rounded-lg border border-zinc-200 p-4 text-sm dark:border-zinc-700"
             >
               <p className="font-medium">
                 {s.order}. {s.title || <span className="text-zinc-400">Untitled scene</span>}

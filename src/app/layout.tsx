@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100">
-        <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+        <header className="border-b border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950">
           {/* Gold-to-teal strip, echoing the lab logo's swirl */}
           <div className="h-1 bg-gradient-to-r from-gold via-gold-dark to-teal" aria-hidden />
           {/*

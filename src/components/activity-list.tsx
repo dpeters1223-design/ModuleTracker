@@ -11,7 +11,7 @@ function UndoButton({ item }: { item: ActivityItem }) {
     <button
       type="button"
       disabled={pending}
-      className="shrink-0 rounded border border-zinc-300 px-2 py-0.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+      className="shrink-0 rounded border border-zinc-300 px-2 py-0.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
       onClick={() => {
         if (!confirm(`Undo this change?\n\n${item.summary}`)) return;
         startTransition(async () => {
@@ -45,7 +45,7 @@ export function ActivityList({
       {days.map((day) => (
         <section key={day} className="space-y-1.5">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{dayLabels[day]}</h3>
-          <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
+          <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
             {items
               .filter((i) => i.day === day)
               .map((i) => (

@@ -26,14 +26,14 @@ export default async function ScriptsPage() {
       </div>
 
       {modules.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
+        <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-600">
           <p className="font-medium">No modules yet</p>
           <p className="mt-1 text-sm text-zinc-500">
             Scripts belong to modules. Create a module with the Discovery Form first.
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
+        <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
           {modules.map((m) => {
             const script = scripts.get(m.id);
             return (

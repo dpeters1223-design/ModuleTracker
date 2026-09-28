@@ -58,7 +58,7 @@ function CardBody({ task, today }: { task: BoardTask; today: string }) {
 }
 
 const cardCls =
-  "space-y-1.5 rounded-md border border-zinc-200 bg-white p-2.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950";
+  "space-y-1.5 rounded-md border border-zinc-200 bg-white p-2.5 shadow-sm dark:border-zinc-700 dark:bg-zinc-950";
 
 function DraggableCard({ task, today }: { task: BoardTask; today: string }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
@@ -108,7 +108,7 @@ function QuickAdd({ moduleId, phase, onDone }: { moduleId: string; phase: TaskPh
         autoFocus
         aria-label={`New ${TASK_PHASE_LABELS[phase]} task`}
         placeholder="Task name, then Enter"
-        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-950"
         value={title}
         disabled={pending}
         onChange={(e) => setTitle(e.target.value)}

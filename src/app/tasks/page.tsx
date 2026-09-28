@@ -13,7 +13,7 @@ import { todayInZone } from "@/lib/dates";
 export const metadata: Metadata = { title: "Tasks · ModuleTracker" };
 
 const selectCls =
-  "w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm sm:w-auto dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm sm:w-auto dark:border-zinc-600 dark:bg-zinc-900";
 
 const DUE_FILTERS = {
   overdue: "Overdue",
@@ -138,7 +138,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
         </label>
         <button
           type="submit"
-          className="rounded-md border border-zinc-300 px-3 py-1.5 font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="rounded-md border border-zinc-300 px-3 py-1.5 font-medium hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
         >
           Apply
         </button>
@@ -150,7 +150,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
       </form>
 
       {groups.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
+        <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-600">
           <p className="font-medium">{filtered ? "No tasks match these filters" : "No open tasks"}</p>
           <p className="mt-1 text-sm text-zinc-500">Tasks are added on each module&apos;s page.</p>
         </div>
@@ -161,7 +161,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
               <h2 className={`text-sm font-semibold ${g.tone}`}>
                 {g.title} <span className="font-normal text-zinc-500">({g.items.length})</span>
               </h2>
-              <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
+              <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
                 {g.items.map((t) => (
                   <li key={t.id} className="flex flex-wrap items-start gap-3 px-3 py-2.5">
                     <TaskStatusSelect moduleId={t.moduleId} taskId={t.id} title={t.title} status={t.status} />
