@@ -164,7 +164,7 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
           )}
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
+        <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
           {modules.map((m) => (
             <li key={m.id}>
               <Link

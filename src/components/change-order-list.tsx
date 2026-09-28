@@ -69,7 +69,7 @@ function ChangeOrderForm({
 
   return (
     <form
-      className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/50"
+      className="space-y-3 rounded-md border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/50"
       onSubmit={(e) => {
         e.preventDefault();
         startTransition(async () => {
@@ -275,7 +275,7 @@ export function ChangeOrderList({
     );
 
   const list = (rows: ChangeOrderRow[]) => (
-    <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
+    <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
       {rows.map(row)}
     </ul>
   );

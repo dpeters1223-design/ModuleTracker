@@ -22,7 +22,7 @@ function Card({ title, href, children }: { title: string; href?: string; childre
   return (
     // min-w-0: on phones (one column) a grid item otherwise widens to its longest line
     // instead of truncating it. Desktop's two equal columns already cap the width.
-    <section className="min-w-0 space-y-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-950">
+    <section className="min-w-0 space-y-3 rounded-lg border border-zinc-300 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-950">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">{title}</h2>
         {href && (
@@ -40,7 +40,7 @@ function Stat({ label, value, href, alert = false }: { label: string; value: num
   return (
     <Link
       href={href}
-      className="rounded-lg border border-zinc-200 bg-white p-4 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:border-zinc-700"
+      className="rounded-lg border border-zinc-300 bg-white p-4 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:border-zinc-700"
     >
       <p className={`text-3xl font-semibold tabular-nums ${alert && value ? "text-red-700 dark:text-red-400" : ""}`}>
         {value}

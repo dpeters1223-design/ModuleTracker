@@ -196,7 +196,7 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
         </div>
       )}
 
-      <section className="space-y-5 rounded-lg border border-zinc-200 bg-white p-4 sm:p-6 dark:border-zinc-700 dark:bg-zinc-950">
+      <section className="space-y-5 rounded-lg border border-zinc-300 bg-white p-4 sm:p-6 dark:border-zinc-700 dark:bg-zinc-950">
         {step === 0 && (
           <>
             <h2 className="text-lg font-semibold">What is this module about?</h2>
@@ -308,9 +308,9 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
             {form.tools.map((tool, i) => (
               <div
                 key={i}
-                className="space-y-3 rounded-md border border-zinc-300 shadow-sm p-3 sm:p-4 dark:border-zinc-600"
+                className="space-y-3 rounded-md border-2 border-zinc-400 shadow-sm p-3 sm:p-4 dark:border-zinc-500"
               >
-                <div className="flex items-center justify-between -mx-3 -mt-3 rounded-t-md border-b border-zinc-200 bg-zinc-100 px-3 py-2 sm:-mx-4 sm:-mt-4 sm:px-4 dark:border-zinc-600 dark:bg-zinc-800">
+                <div className="flex items-center justify-between -mx-3 -mt-3 rounded-t-md border-b-2 border-zinc-300 bg-zinc-200/70 px-3 py-2 sm:-mx-4 sm:-mt-4 sm:px-4 dark:border-zinc-600 dark:bg-zinc-800">
                   <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Tool {i + 1}</span>
                   {form.tools.length > 1 && (
                     <button
@@ -383,9 +383,9 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
             {form.scenes.map((scene, i) => (
               <div
                 key={i}
-                className="space-y-4 rounded-md border border-zinc-300 shadow-sm p-3 sm:p-4 dark:border-zinc-600"
+                className="space-y-4 rounded-md border-2 border-zinc-400 shadow-sm p-3 sm:p-4 dark:border-zinc-500"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 -mx-3 -mt-3 rounded-t-md border-b border-zinc-200 bg-zinc-100 px-3 py-2 sm:-mx-4 sm:-mt-4 sm:px-4 dark:border-zinc-600 dark:bg-zinc-800">
+                <div className="flex flex-wrap items-center justify-between gap-2 -mx-3 -mt-3 rounded-t-md border-b-2 border-zinc-300 bg-zinc-200/70 px-3 py-2 sm:-mx-4 sm:-mt-4 sm:px-4 dark:border-zinc-600 dark:bg-zinc-800">
                   <span className="font-semibold">Scene {i + 1}</span>
                   <div className="flex gap-3">
                     <button

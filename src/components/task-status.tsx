@@ -57,7 +57,7 @@ export function TaskPhaseSelect({
     <select
       aria-label={`Move ${title} to phase`}
       title="Move to phase"
-      className="max-w-full rounded border border-zinc-200 bg-transparent px-1 py-0.5 text-xs text-zinc-500 dark:border-zinc-600"
+      className="max-w-full rounded border border-zinc-300 bg-transparent px-1 py-0.5 text-xs text-zinc-500 dark:border-zinc-600"
       value={phase}
       disabled={pending}
       onChange={(e) => {

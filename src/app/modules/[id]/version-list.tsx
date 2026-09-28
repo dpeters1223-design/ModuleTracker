@@ -63,7 +63,7 @@ export function VersionList({
 
       {adding && (
         <form
-          className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/50"
+          className="space-y-3 rounded-md border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/50"
           onSubmit={(e) => {
             e.preventDefault();
             startTransition(async () => {
@@ -118,7 +118,7 @@ export function VersionList({
       )}
 
       {versions.length > 0 && (
-        <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
+        <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
           {versions.map((v, i) => (
             <li key={v.id} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0 space-y-0.5">

@@ -161,7 +161,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
               <h2 className={`text-sm font-semibold ${g.tone}`}>
                 {g.title} <span className="font-normal text-zinc-500">({g.items.length})</span>
               </h2>
-              <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
+              <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
                 {g.items.map((t) => (
                   <li key={t.id} className="flex flex-wrap items-start gap-3 px-3 py-2.5">
                     <TaskStatusSelect moduleId={t.moduleId} taskId={t.id} title={t.title} status={t.status} />

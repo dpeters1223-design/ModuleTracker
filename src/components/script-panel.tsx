@@ -81,7 +81,7 @@ export function ScriptPanel({ moduleId, script }: { moduleId: string; script: Sc
     });
 
   return (
-    <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-950">
+    <div className="space-y-3 rounded-lg border border-zinc-300 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-950">
       {script ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">

@@ -7,7 +7,7 @@ export function SceneActivity({ interactions, questions }: { interactions: unkno
   if (!items.length && !quiz.length) return null;
 
   return (
-    <div className="mt-3 space-y-3 border-t border-zinc-100 pt-3 dark:border-zinc-700">
+    <div className="mt-3 space-y-3 border-t border-zinc-300 pt-3 dark:border-zinc-700">
       {items.length > 0 && (
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">What happens</p>

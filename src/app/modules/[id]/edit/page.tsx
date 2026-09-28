@@ -28,7 +28,7 @@ export default async function EditModulePage(props: PageProps<"/modules/[id]/edi
       </p>
       <DiscoveryForm edit={{ moduleId: mod.id, initial: moduleToDiscovery(mod) }} />
 
-      <section className="mt-12 space-y-2 border-t border-zinc-200 pt-6 dark:border-zinc-700">
+      <section className="mt-12 space-y-2 border-t border-zinc-300 pt-6 dark:border-zinc-700">
         <h2 className="text-sm font-semibold text-red-700 dark:text-red-400">Danger zone</h2>
         <p className="text-sm text-zinc-500">
           Deleting removes the module, its scenes and its tasks from ModuleTracker. The script and

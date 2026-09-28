@@ -139,7 +139,7 @@ export function SceneActivityEditor({
     onChange({ questions: value.questions.map((q, j) => (j === qi ? { ...q, ...patch } : q)) });
 
   return (
-    <div className="space-y-4 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/40">
+    <div className="space-y-4 rounded-md border border-zinc-300 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/40">
       <div className="space-y-1">
         <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Interactivity level</span>
         <select className={inputCls} value={value.level} onChange={(e) => onChange({ level: e.target.value })}>
@@ -204,7 +204,7 @@ export function SceneActivityEditor({
         <div className="space-y-3">
           <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Quiz questions</p>
           {value.questions.map((q, qi) => (
-            <div key={qi} className="space-y-2 rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-950">
+            <div key={qi} className="space-y-2 rounded-md border border-zinc-300 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-950">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-zinc-500">Question {qi + 1}</span>
                 <button

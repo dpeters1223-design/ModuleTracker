@@ -102,7 +102,7 @@ export function GanttChart({
         <div
           key={n}
           aria-hidden
-          className="absolute inset-y-0 border-l border-zinc-200 dark:border-zinc-700"
+          className="absolute inset-y-0 border-l border-zinc-300 dark:border-zinc-700"
           style={{ left: `${pct(n)}%` }}
         />
       ))}
@@ -129,10 +129,10 @@ export function GanttChart({
         </li>
       </ul>
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950">
+      <div className="overflow-x-auto rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950">
         <div className="min-w-[46rem]">
           {/* Header: months, then week-start dates */}
-          <div className="grid grid-cols-[13rem_1fr] border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-700">
+          <div className="grid grid-cols-[13rem_1fr] border-b border-zinc-300 text-xs text-zinc-500 dark:border-zinc-700">
             <div className="px-3 py-1.5 font-medium">Task</div>
             <div className="relative h-10">
               {months.map((m) => (
@@ -152,7 +152,7 @@ export function GanttChart({
           {groups.map((g) => (
             <div key={g.id || "all"}>
               {groupByModule && (
-                <div className="grid grid-cols-[13rem_1fr] border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="grid grid-cols-[13rem_1fr] border-b border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
                   <Link href={`/modules/${g.id}`} className="truncate px-3 py-1.5 text-sm font-semibold hover:underline">
                     {g.label}
                   </Link>
@@ -165,7 +165,7 @@ export function GanttChart({
                 return (
                   <div
                     key={t.id}
-                    className="grid grid-cols-[13rem_1fr] border-b border-zinc-100 last:border-b-0 dark:border-zinc-900"
+                    className="grid grid-cols-[13rem_1fr] border-b border-zinc-300 last:border-b-0 dark:border-zinc-900"
                   >
                     <div className="min-w-0 px-3 py-1.5">
                       <p className={`truncate text-sm ${done ? "text-zinc-400 line-through" : ""}`}>{t.title}</p>
@@ -221,7 +221,7 @@ export function GanttChart({
       {hover && (
         <div
           role="tooltip"
-          className="pointer-events-none fixed z-50 max-w-xs rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
+          className="pointer-events-none fixed z-50 max-w-xs rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
           style={{ left: hover.x + 12, top: hover.y + 12 }}
         >
           <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{hover.task.title}</p>

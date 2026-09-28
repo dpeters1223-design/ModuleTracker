@@ -58,7 +58,7 @@ function CardBody({ task, today }: { task: BoardTask; today: string }) {
 }
 
 const cardCls =
-  "space-y-1.5 rounded-md border border-zinc-200 bg-white p-2.5 shadow-sm dark:border-zinc-700 dark:bg-zinc-950";
+  "space-y-1.5 rounded-md border border-zinc-300 bg-white p-2.5 shadow-sm dark:border-zinc-700 dark:bg-zinc-950";
 
 function DraggableCard({ task, today }: { task: BoardTask; today: string }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });

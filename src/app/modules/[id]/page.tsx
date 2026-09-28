@@ -146,7 +146,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
 
       <Link
         href={`/scripts/${mod.id}`}
-        className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+        className="flex items-center justify-between gap-4 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:bg-zinc-900"
       >
         <span>
           <span className="font-medium">Script: </span>
@@ -266,7 +266,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
           {mod.scenes.map((s) => (
             <li
               key={s.id}
-              className="rounded-lg border border-zinc-200 p-4 text-sm dark:border-zinc-700"
+              className="rounded-lg border border-zinc-300 p-4 text-sm dark:border-zinc-700"
             >
               <p className="font-medium">
                 {s.order}. {s.title || <span className="text-zinc-400">Untitled scene</span>}
