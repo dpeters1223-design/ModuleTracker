@@ -1,6 +1,13 @@
 // Shared shape + validation for the SME Discovery Form. Imported by both the
 // client form and the server action, so it must stay free of server-only code.
 import type { Module, Scene } from "@prisma/client";
+import {
+  cleanInteractions,
+  cleanQuestions,
+  SCENE_TYPES,
+  type QuizQuestion,
+  type SceneInteraction,
+} from "@/lib/interactions";
 
 export type DiscoveryTool = {
   name: string;
@@ -23,6 +30,11 @@ export type DiscoveryScene = {
   talent: string;
   learningObjectives: string;
   mediaAssets: string;
+  // Structured activity (see src/lib/interactions.ts)
+  interactions: SceneInteraction[];
+  /** "" or "1" | "2" | "3" */
+  level: string;
+  questions: QuizQuestion[];
 };
 
 export type DiscoveryInput = {
@@ -37,7 +49,8 @@ export type DiscoveryInput = {
   scenes: DiscoveryScene[];
 };
 
-export const MEDIA_TYPES = ["360 video", "360 image", "Other"] as const;
+/** Scene types offered in the form (Uptale's terms). */
+export const MEDIA_TYPES = SCENE_TYPES;
 
 export const emptyScene = (): DiscoveryScene => ({
   title: "",
@@ -52,6 +65,9 @@ export const emptyScene = (): DiscoveryScene => ({
   talent: "",
   learningObjectives: "",
   mediaAssets: "",
+  interactions: [],
+  level: "",
+  questions: [],
 });
 
 export const emptyDiscovery = (): DiscoveryInput => ({
@@ -114,16 +130,23 @@ export function moduleToDiscovery(mod: Module & { scenes: Scene[] }): DiscoveryI
           talent: s.talent ?? "",
           learningObjectives: s.learningObjectives ?? "",
           mediaAssets: s.mediaAssets ?? "",
+          interactions: cleanInteractions(s.interactions),
+          level: s.interactivityLevel ? String(s.interactivityLevel) : "",
+          questions: cleanQuestions(s.questions),
         }))
       : [emptyScene()],
   };
 }
 
-/** A scene's text fields (everything but its id). */
+/** A scene's plain text fields (not its id or structured activity). */
 const sceneText = (s: DiscoveryScene) =>
   Object.entries(s)
-    .filter(([key]) => key !== "id")
+    .filter(([key, value]) => key !== "id" && key !== "level" && typeof value === "string")
     .map(([, value]) => value as string);
+
+/** Whether a scene has anything filled in at all. */
+const sceneHasContent = (s: DiscoveryScene) =>
+  sceneText(s).some(Boolean) || s.interactions.length > 0 || s.questions.length > 0 || Boolean(s.level);
 
 const MAX_SHORT = 200;
 const MAX_LONG = 5000;
@@ -163,8 +186,11 @@ export function cleanDiscovery(input: DiscoveryInput): {
         talent: t(s?.talent),
         learningObjectives: t(s?.learningObjectives),
         mediaAssets: t(s?.mediaAssets),
+        interactions: cleanInteractions(s?.interactions),
+        level: ["1", "2", "3"].includes(String(s?.level)) ? String(s?.level) : "",
+        questions: cleanQuestions(s?.questions),
       }))
-      .filter((s) => sceneText(s).some(Boolean)),
+      .filter(sceneHasContent),
   };
 
   if (!data.name) errors.push("Module name is required.");

@@ -1,4 +1,5 @@
 import type { Module, Scene } from "@prisma/client";
+import { cleanInteractions, cleanQuestions, interactionLabel } from "@/lib/interactions";
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -40,7 +41,8 @@ export function buildScriptHtml(mod: Module, scenes: Scene[]): string {
     parts.push(`<h3>Scene ${s.order}${s.title ? `: ${esc(s.title)}` : ""}</h3>`);
     const meta = [
       s.location && `Location: ${s.location}`,
-      s.backgroundMediaType && `Background: ${s.backgroundMediaType}`,
+      s.backgroundMediaType && `Scene type: ${s.backgroundMediaType}`,
+      s.interactivityLevel && `Interactivity level ${s.interactivityLevel}`,
       s.toolUsed && `Tool: ${s.toolUsed}`,
       s.speaker && `Speaker: ${s.speaker}`,
     ].filter(Boolean) as string[];
@@ -52,7 +54,28 @@ export function buildScriptHtml(mod: Module, scenes: Scene[]): string {
     if (s.interactionHighlighted) {
       parts.push(`<p><b>Highlighted / clicked:</b> ${multiline(s.interactionHighlighted)}</p>`);
     }
-    if (s.activities) parts.push(`<p><b>Activities:</b> ${multiline(s.activities)}</p>`);
+    const interactions = cleanInteractions(s.interactions);
+    if (interactions.length) {
+      parts.push("<p><b>What happens:</b></p><ul>");
+      for (const i of interactions) {
+        parts.push(`<li>${esc(interactionLabel(i.type))}${i.note ? `: ${esc(i.note)}` : ""}</li>`);
+      }
+      parts.push("</ul>");
+    }
+    if (s.activities) parts.push(`<p><b>Activity notes:</b> ${multiline(s.activities)}</p>`);
+    const quiz = cleanQuestions(s.questions);
+    if (quiz.length) {
+      parts.push("<p><b>Quiz:</b></p><ol>");
+      for (const q of quiz) {
+        const options = q.options
+          .map((o, oi) => `${String.fromCharCode(65 + oi)}. ${esc(o.text)}${o.correct ? " <b>(correct)</b>" : ""}`)
+          .join("<br>");
+        parts.push(
+          `<li>${esc(q.question)}${options ? `<br>${options}` : ""}${q.feedback ? `<br><i>Feedback: ${esc(q.feedback)}</i>` : ""}</li>`
+        );
+      }
+      parts.push("</ol>");
+    }
     if (s.notes) parts.push(`<p><b>Notes:</b> ${multiline(s.notes)}</p>`);
     parts.push(`<p><b>Narration${s.speaker ? ` (${esc(s.speaker)})` : ""}:</b></p>`);
     parts.push(`<p style="color:#888888"><i>[Write the narration for this scene here]</i></p>`);

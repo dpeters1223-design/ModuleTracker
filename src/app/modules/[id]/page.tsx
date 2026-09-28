@@ -14,6 +14,7 @@ import { todayInZone } from "@/lib/dates";
 import { dayLabel, getActivity } from "@/lib/activity-feed";
 import { ActivityList } from "@/components/activity-list";
 import { GanttChart } from "@/components/gantt-chart";
+import { SceneActivity } from "@/components/scene-activity";
 import { moduleTitle } from "@/lib/script-template";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -278,9 +279,10 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
                     ["Speaker", s.speaker],
                     ["On-screen talent", s.talent],
                     ["Tool", s.toolUsed],
-                    ["Background", s.backgroundMediaType],
+                    ["Scene type", s.backgroundMediaType],
+                    ["Interactivity", s.interactivityLevel ? `Level ${s.interactivityLevel}` : null],
                     ["Highlighted", s.interactionHighlighted],
-                    ["Activities", s.activities],
+                    ["Activity notes", s.activities],
                     ["Learning objectives", s.learningObjectives],
                     ["Media assets", s.mediaAssets],
                     ["Notes", s.notes],
@@ -294,6 +296,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
                     </div>
                   ))}
               </dl>
+              <SceneActivity interactions={s.interactions} questions={s.questions} />
             </li>
           ))}
         </ol>

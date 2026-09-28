@@ -370,6 +370,18 @@ The docs themselves stay out of the repo; this is the summary that matters for t
     `NOTIFY_ABOUT` (Tom = tjp83, assumed) since `User.lastSeenActivityAt`; opening
     `/activity?watch=1` clears it. No email.
   - New env for Vercel: `APP_TIMEZONE`, `NOTIFY_USERS`, `NOTIFY_ABOUT` (+ the three backup ones).
+- [x] **Structured scene activities (deployed 2026-09-28)** — Jay's request: dropdowns/checkboxes
+      instead of free text. Vocabulary from the team's Uptale KBA ("Tag Types Used", "Scene
+      Types") + Interactivity Matrix, in `src/lib/interactions.ts`. Scene gains `interactions`
+      (Json `[{type,note}]`), `interactivityLevel` (1–3), `questions` (Json quiz: question,
+      options with `correct`, feedback). Form: `src/components/scene-activity-editor.tsx`;
+      display: `scene-activity.tsx`; also in the script template. "Background media" became
+      "Scene type" (360 video / 360 photo / Void / Spatial (3D)); '360 image' rows renamed.
+      Migration `20260926150000_scene_interactions` was applied **over HTTPS via the Neon
+      adapter** (hospital network blocked port 5432) and recorded in `_prisma_migrations`
+      with the file's sha256 — `prisma migrate status` should show it as applied.
+  - Three `[Example]` modules (EX-PVD1, EX-PVD2, EX-MET1) were seeded 2026-09-25 as demo
+    data (all old data cleared first). Their scenes don't have structured activities yet.
 - [ ] **Jay as Drive owner (on hold until Jay confirms the test script):** code now uses
       `SHARE_SCRIPTS_WITH` (explicit email list; replaced `SHARE_SCRIPTS_WITH_TEAM`). Local
       `.env.local` already has `DRIVE_OWNER_EMAIL=jgw226@cornell.edu` and

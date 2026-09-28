@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SceneActivityEditor } from "@/components/scene-activity-editor";
 import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import { submitDiscovery, updateDiscovery } from "@/app/discovery/actions";
 import {
@@ -448,7 +449,7 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
                       onChange={(e) => updateScene(i, { tool: e.target.value })}
                     />
                   </Field>
-                  <Field label="Background media">
+                  <Field label="Scene type">
                     <select
                       className={inputCls}
                       value={scene.mediaType}
@@ -473,7 +474,12 @@ function DiscoveryFormInner({ edit }: { edit?: DiscoveryEdit }) {
                     onChange={(e) => updateScene(i, { interaction: e.target.value })}
                   />
                 </Field>
-                <Field label="Activities" hint="Quizzes, clickables, pop-ups, etc.">
+                <SceneActivityEditor
+                  sceneLabel={`Scene ${i + 1}`}
+                  value={{ interactions: scene.interactions, level: scene.level, questions: scene.questions }}
+                  onChange={(patch) => updateScene(i, patch)}
+                />
+                <Field label="Other activity notes" hint="Anything about the activities the options above don't cover.">
                   <textarea
                     className={`${inputCls} min-h-16`}
                     value={scene.activities}

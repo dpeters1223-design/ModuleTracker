@@ -150,8 +150,14 @@ model Scene {
   toolUsed               String?
   interactionHighlighted String?
   learningObjectives     String?
-  /// Quizzes, clickables and other activities in the scene
+  /// Free-text activity notes (the structured parts are interactions/questions)
   activities             String?
+  /// Checked interaction types with notes: [{ type, note }] (see src/lib/interactions.ts)
+  interactions           Json    @default("[]")
+  /// 1 = standard tags, 2 = custom 2D/3D elements, 3 = fully custom multi-step activity
+  interactivityLevel     Int?
+  /// Quiz questions: [{ question, options: [{ text, correct }], feedback }]
+  questions              Json    @default("[]")
   mediaAssets            String?
   notes                  String?
 

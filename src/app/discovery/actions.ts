@@ -56,6 +56,9 @@ function sceneFields(s: DiscoveryScene, i: number) {
     talent: opt(s.talent),
     learningObjectives: opt(s.learningObjectives),
     mediaAssets: opt(s.mediaAssets),
+    interactions: s.interactions,
+    interactivityLevel: s.level ? Number(s.level) : null,
+    questions: s.questions,
   };
 }
 
