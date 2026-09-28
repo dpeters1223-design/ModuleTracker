@@ -1,5 +1,5 @@
 import type { Module, Scene } from "@prisma/client";
-import { cleanInteractions, cleanQuestions, interactionLabel } from "@/lib/interactions";
+import { cleanInteractions, cleanQuestions, interactionLabel, noteSteps, STEP_LIST_TYPES } from "@/lib/interactions";
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -58,7 +58,12 @@ export function buildScriptHtml(mod: Module, scenes: Scene[]): string {
     if (interactions.length) {
       parts.push("<p><b>What happens:</b></p><ul>");
       for (const i of interactions) {
-        parts.push(`<li>${esc(interactionLabel(i.type))}${i.note ? `: ${esc(i.note)}` : ""}</li>`);
+        const steps = STEP_LIST_TYPES.includes(i.type) ? noteSteps(i.note) : [];
+        parts.push(
+          steps.length
+            ? `<li>${esc(interactionLabel(i.type))}:<ol>${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol></li>`
+            : `<li>${esc(interactionLabel(i.type))}${i.note ? `: ${esc(i.note)}` : ""}</li>`
+        );
       }
       parts.push("</ul>");
     }

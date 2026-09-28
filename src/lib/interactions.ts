@@ -13,7 +13,7 @@ export const INTERACTIVITY_LEVELS: Record<number, string> = {
 /** Interaction types a scene can use. `hint` is the placeholder for the note box. */
 export const INTERACTION_TYPES = [
   { type: "hotspot", label: "Click a highlighted spot", hint: 'e.g. "Click here to vent the load lock" (green highlight)' },
-  { type: "sequence", label: "Step-by-step click sequence", hint: "List the steps in order" },
+  { type: "sequence", label: "Step-by-step click sequence", hint: "Type a step, press Enter for the next one" },
   { type: "text", label: "Text pop-up", hint: "What the text says or covers" },
   { type: "info", label: "Info panel", hint: "What it explains" },
   { type: "narration", label: "Narration / audio", hint: "Text-to-speech or recorded? What's said?" },
@@ -21,10 +21,26 @@ export const INTERACTION_TYPES = [
   { type: "image2d", label: "2D image pop-up", hint: "e.g. close-up of the recipe screen" },
   { type: "video2d", label: "2D video pop-up", hint: "What the clip shows" },
   { type: "object3d", label: "3D object", hint: "Drag-and-drop, movable or stationary? e.g. drag the wafer onto the load lock" },
-  { type: "door", label: "Door (go to next scene)", hint: "Where it goes: next scene, another module, or exit" },
+  {
+    type: "door",
+    label: "Door (go to next scene)",
+    // Jay: doors are normally sequential; branching (e.g. a "wrong answer" scene) takes much
+    // longer to build, so it should only happen when a learning objective needs it.
+    hint: "Usually just the next scene. Branching to a different scene takes much longer to build, so only if a learning objective needs it",
+  },
   { type: "timer", label: "Timer / score", hint: "What's timed or scored" },
-  { type: "voice", label: "Voice response (microphone)", hint: "What the learner says" },
+  // No voice/microphone tag: Uptale needs an internet connection for it, which the team avoids.
 ] as const;
+
+/** Interaction types whose note is a list of numbered steps (one per line). */
+export const STEP_LIST_TYPES: readonly string[] = ["sequence"];
+
+/** A step-list note's steps: one per non-blank line. */
+export const noteSteps = (note: string) =>
+  note
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
 export type InteractionType = (typeof INTERACTION_TYPES)[number]["type"];
 export type SceneInteraction = { type: InteractionType; note: string };
@@ -50,7 +66,10 @@ export function cleanInteractions(value: unknown): SceneInteraction[] {
   const list = Array.isArray(value) ? value : [];
   return INTERACTION_TYPES.flatMap(({ type }) => {
     const found = list.find((i) => i && typeof i === "object" && (i as SceneInteraction).type === type);
-    return found ? [{ type, note: str((found as SceneInteraction).note, 1000) }] : [];
+    if (!found) return [];
+    const note = str((found as SceneInteraction).note, 3000);
+    // Step lists keep one step per line; blank lines are dropped.
+    return [{ type, note: STEP_LIST_TYPES.includes(type) ? noteSteps(note).join("\n") : note }];
   });
 }
 

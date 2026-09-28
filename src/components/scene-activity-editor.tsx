@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   emptyQuestion,
   INTERACTION_TYPES,
   INTERACTIVITY_LEVELS,
+  STEP_LIST_TYPES,
   type InteractionType,
   type QuizQuestion,
   type SceneInteraction,
@@ -18,6 +20,92 @@ const addBtn =
   "rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
 type Value = { interactions: SceneInteraction[]; level: string; questions: QuizQuestion[] };
+
+/**
+ * Numbered steps stored as one line each. Enter adds the next step and moves to it;
+ * Backspace on an empty step removes it and goes back to the previous one.
+ */
+function StepList({
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const steps = value === "" ? [""] : value.split("\n");
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  // Step to focus once the new list has rendered (after Enter / Backspace / Add step).
+  const pendingFocus = useRef<number | null>(null);
+  const setFocusIdx = (idx: number) => {
+    pendingFocus.current = idx;
+  };
+
+  useEffect(() => {
+    if (pendingFocus.current === null) return;
+    refs.current[pendingFocus.current]?.focus();
+    pendingFocus.current = null;
+  });
+
+  const update = (next: string[]) => onChange(next.join("\n"));
+
+  return (
+    <div className="space-y-1.5">
+      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
+      <ol className="space-y-1.5">
+        {steps.map((step, si) => (
+          <li key={si} className="flex items-center gap-2">
+            <span className="w-5 shrink-0 text-right text-xs tabular-nums text-zinc-500">{si + 1}.</span>
+            <input
+              ref={(el) => {
+                refs.current[si] = el;
+              }}
+              className={inputCls}
+              aria-label={`${label}, step ${si + 1}`}
+              placeholder={si === 0 ? placeholder : "Next step"}
+              value={step}
+              onChange={(e) => update(steps.map((s, j) => (j === si ? e.target.value : s)))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  update([...steps.slice(0, si + 1), "", ...steps.slice(si + 1)]);
+                  setFocusIdx(si + 1);
+                } else if (e.key === "Backspace" && step === "" && steps.length > 1) {
+                  e.preventDefault();
+                  update(steps.filter((_, j) => j !== si));
+                  setFocusIdx(Math.max(0, si - 1));
+                }
+              }}
+            />
+            {steps.length > 1 && (
+              <button
+                type="button"
+                className={linkBtn}
+                aria-label={`Remove step ${si + 1}`}
+                onClick={() => update(steps.filter((_, j) => j !== si))}
+              >
+                ✕
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+      <button
+        type="button"
+        className={`${addBtn} ml-7`}
+        onClick={() => {
+          update([...steps, ""]);
+          setFocusIdx(steps.length);
+        }}
+      >
+        + Add step
+      </button>
+    </div>
+  );
+}
 
 /**
  * A scene's structured activity: interactivity level, which interactions it uses
@@ -85,6 +173,17 @@ export function SceneActivityEditor({
               .filter((i) => i.type !== "question")
               .map((i) => {
                 const def = INTERACTION_TYPES.find((t) => t.type === i.type)!;
+                if (STEP_LIST_TYPES.includes(i.type)) {
+                  return (
+                    <StepList
+                      key={i.type}
+                      label={def.label}
+                      placeholder={def.hint}
+                      value={i.note}
+                      onChange={(note) => setNote(i.type, note)}
+                    />
+                  );
+                }
                 return (
                   <label key={i.type} className="block space-y-1">
                     <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{def.label}</span>

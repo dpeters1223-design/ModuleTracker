@@ -1,4 +1,4 @@
-import { cleanInteractions, cleanQuestions, interactionLabel } from "@/lib/interactions";
+import { cleanInteractions, cleanQuestions, interactionLabel, noteSteps, STEP_LIST_TYPES } from "@/lib/interactions";
 
 /** Read-only view of a scene's interactions and quiz questions (module page). */
 export function SceneActivity({ interactions, questions }: { interactions: unknown; questions: unknown }) {
@@ -17,7 +17,17 @@ export function SceneActivity({ interactions, questions }: { interactions: unkno
                 <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
                   {interactionLabel(i.type)}
                 </span>
-                {i.note && <span className="ml-2 text-zinc-600 dark:text-zinc-400">{i.note}</span>}
+                {STEP_LIST_TYPES.includes(i.type) ? (
+                  noteSteps(i.note).length > 0 && (
+                    <ol className="mt-1 list-decimal space-y-0.5 pl-9 text-zinc-600 dark:text-zinc-400">
+                      {noteSteps(i.note).map((s, si) => (
+                        <li key={si}>{s}</li>
+                      ))}
+                    </ol>
+                  )
+                ) : (
+                  i.note && <span className="ml-2 text-zinc-600 dark:text-zinc-400">{i.note}</span>
+                )}
               </li>
             ))}
           </ul>
