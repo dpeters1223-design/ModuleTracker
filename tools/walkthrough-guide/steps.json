@@ -48,9 +48,9 @@
     "id": "scene-1-basics",
     "img": "shots/scene-1-basics.png",
     "hot": {
-      "x": 23,
+      "x": 23.08,
       "y": 46.84,
-      "w": 26.83,
+      "w": 26.75,
       "h": 6.32
     }
   },
@@ -61,8 +61,19 @@
     "hot": {
       "x": 50.17,
       "y": 47.89,
-      "w": 25.75,
+      "w": 25.67,
       "h": 4.21
+    }
+  },
+  {
+    "job": "scenes",
+    "id": "scene-2b-steps",
+    "img": "shots/scene-2b-steps.png",
+    "hot": {
+      "x": 24,
+      "y": 36.97,
+      "w": 52,
+      "h": 26.05
     }
   },
   {
@@ -70,9 +81,9 @@
     "id": "scene-3-quiz",
     "img": "shots/scene-3-quiz.png",
     "hot": {
-      "x": 25,
+      "x": 25.08,
       "y": 46.45,
-      "w": 50,
+      "w": 49.83,
       "h": 7.11
     }
   },

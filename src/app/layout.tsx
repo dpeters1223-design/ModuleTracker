@@ -51,6 +51,19 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             </div>
             {session?.user && (
               <div className="flex shrink-0 items-center gap-4">
+                {/* Plain <a>: /guide is a static page (public/guide), not an app route. */}
+                <a
+                  href="/guide"
+                  aria-label="How to use ModuleTracker"
+                  title="How to use ModuleTracker"
+                  className="text-zinc-500 hover:text-brand dark:hover:text-gold"
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <circle cx="12" cy="12" r="9.5" />
+                    <path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.3-2.5 3.9" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12" cy="17.2" r="0.6" fill="currentColor" />
+                  </svg>
+                </a>
                 {bell !== null && (
                   <Link
                     href="/activity?watch=1"

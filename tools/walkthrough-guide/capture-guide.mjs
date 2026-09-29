@@ -1,13 +1,14 @@
 // Captures the how-to guide's screenshots from the local app (signed in as David) and
 // records each step's hotspot rectangle as % of the screenshot. Nothing is saved to the
-// app: the Discovery Form is filled but never submitted. Output: guide/shots/*.png + steps.json
+// app: the Discovery Form is filled but never submitted. Output: shots/*.png + steps.json in
+// GUIDE_DIR (default: this script's folder).
 import { createRequire } from "module";
 import fs from "fs";
 import path from "path";
 import puppeteer from "puppeteer-core";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Z]:)/, "$1");
-const OUT = path.join(HERE, "..", "guide", "shots");
+const OUT = path.join(process.env.GUIDE_DIR ?? HERE, "shots");
 fs.mkdirSync(OUT, { recursive: true });
 const req = createRequire(process.env.NODE_PATH + "/");
 req("dotenv").config({ path: ".env.local", quiet: true });
@@ -106,11 +107,20 @@ await setVal("main select", "360 video", 0);
 await shot("scenes", "scene-1-basics", `() => document.querySelector("main select")`);
 await page.evaluate(() => {
   const tick = (t) => [...document.querySelectorAll("label")].find((l) => l.innerText.trim() === t)?.querySelector("input")?.click();
-  tick("Click a highlighted spot"); tick("Question / quiz");
+  tick("Click a highlighted spot"); tick("Step-by-step click sequence"); tick("Question / quiz");
 });
 await sleep(300);
 await setVal("main select", "2", 1);
 await shot("scenes", "scene-2-activities", byLabel("Question / quiz"));
+// Click sequence: typed for real, Enter makes the next numbered step.
+await page.click('input[aria-label="Step-by-step click sequence, step 1"]');
+for (const [n, s] of ["Open the nitrogen valve", "Set the flow to 5 sccm", "Click Start on the recipe screen"].entries()) {
+  if (n) await page.keyboard.press("Enter");
+  await page.keyboard.type(s);
+}
+await page.evaluate(() => document.activeElement.blur());
+await sleep(200);
+await shot("scenes", "scene-2b-steps", `() => document.querySelector('input[aria-label="Step-by-step click sequence, step 1"]').closest("ol").parentElement`, 8);
 await page.evaluate(() => {
   const set = (el, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, v); el.dispatchEvent(new Event("input", { bubbles: true })); };
   set(document.querySelector('input[placeholder^="e.g. Which power supply"]'), "What color does a good titanium nitride film look like?");

@@ -380,9 +380,12 @@ The docs themselves stay out of the repo; this is the summary that matters for t
       Migration `20260926150000_scene_interactions` was applied **over HTTPS via the Neon
       adapter** (hospital network blocked port 5432) and recorded in `_prisma_migrations`
       with the file's sha256 — `prisma migrate status` should show it as applied.
-- [~] **Walkthrough guide / user manual (in progress — David paused it 2026-09-28 to handle
-      something else; come back to it).** Artifact page https://claude.ai/artifact/LA9Pk3dpPqSkgydLtuGjib
-      (v2): "Meet ModuleTracker" landing (3 features + Get started) → tap-through walkthroughs on
+- [~] **Walkthrough guide / user manual.** Now lives **in the app at `/guide`** (2026-09-29):
+      static page in `public/guide/` built by `node tools/walkthrough-guide/build.mjs`, behind
+      sign-in (the proxy runs before public files), opened from the ? icon in the header.
+      Screenshots recaptured after the step list / voice removal / stronger borders; scenes
+      walkthrough has a click-sequence step. The old artifact page
+      https://claude.ai/artifact/LA9Pk3dpPqSkgydLtuGjib is now out of date. "Meet ModuleTracker" landing (3 features + Get started) → tap-through walkthroughs on
       real screenshots with hotspots and a synthesized "Watch" mode (zoom, cursor, cross-fade).
       Audience: Tom (minimal reading) + boss/team. Source in `tools/walkthrough-guide/`.
       David's direction so far: emphasize List/Board/Timeline, no "no emails" claim (email is

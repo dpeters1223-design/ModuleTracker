@@ -7,7 +7,7 @@ import path from "path";
 import puppeteer from "puppeteer-core";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname).replace(/^\/([A-Z]:)/, "$1");
-const GUIDE = path.join(HERE, "..", "guide");
+const GUIDE = process.env.GUIDE_DIR ?? HERE;
 const OUT = path.join(GUIDE, "shots");
 const req = createRequire(process.env.NODE_PATH + "/");
 req("dotenv").config({ path: ".env.local", quiet: true });
