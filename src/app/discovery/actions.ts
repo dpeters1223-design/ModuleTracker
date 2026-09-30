@@ -85,6 +85,7 @@ export async function submitDiscovery(input: DiscoveryInput): Promise<DiscoveryR
     entityId: mod.id,
     moduleId: mod.id,
     after: { id: mod.id },
+    slack: false, // posted below with more detail
   });
   // Slack alert when someone in NOTIFY_ABOUT (Tom) starts a module.
   if (watchedPeople().includes(user.email.toLowerCase())) {

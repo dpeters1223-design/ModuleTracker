@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { moduleTitle } from "@/lib/script-template";
+import { appUrl, postToSlackLater, slackEscape } from "@/lib/slack";
 
 // Change history. Every data change records who did what, and a before/after copy
 // so it can be undone. Undo kinds come from the action name:
@@ -24,6 +25,8 @@ export type LogInput = {
   moduleLabel?: string | null;
   before?: unknown;
   after?: unknown;
+  /** false: skip the Slack post for watched people (the caller posts its own message). */
+  slack?: boolean;
 };
 
 /** Plain JSON copy (Dates become ISO strings; Prisma accepts those back). */
@@ -52,6 +55,17 @@ export async function logActivity(actor: Actor, input: LogInput) {
       after: json(input.after),
     },
   });
+
+  // Everything someone in NOTIFY_ABOUT (Tom) does in the app goes to Slack.
+  if (input.slack !== false && emailList(process.env.NOTIFY_ABOUT).includes(actor.email.toLowerCase())) {
+    const label = input.moduleLabel ?? (mod ? moduleTitle(mod) : null);
+    const where = label
+      ? mod && input.moduleId
+        ? ` · <${appUrl(`/modules/${input.moduleId}`)}|${slackEscape(label)}>`
+        : ` · ${slackEscape(label)}`
+      : "";
+    postToSlackLater(async () => `:pencil2: *${slackEscape(user?.name ?? actor.email)}*${where}: ${slackEscape(input.summary)}`);
+  }
 }
 
 type UndoKind = "create" | "delete" | "update" | "discovery" | "moduleDelete" | "none";

@@ -6,6 +6,10 @@ import { logActivity } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { TASK_PHASE_LABELS, TASK_STATUS_LABELS } from "@/lib/labels";
+import { appUrl, postToSlackLater, slackEscape } from "@/lib/slack";
+import { moduleTitle } from "@/lib/script-template";
+import { formatDay } from "@/lib/task-format";
+import { todayInZone } from "@/lib/dates";
 
 export type TaskInput = {
   title: string;
@@ -61,6 +65,27 @@ function validate(input: TaskInput) {
   };
 }
 
+const ownerKey = (t: Pick<Task, "owner"> | null) => (t?.owner ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+/** Whether this save hands the task to someone (a new owner, not just clearing it). */
+const isAssignment = (before: Task | null, after: Task) => Boolean(ownerKey(after)) && ownerKey(after) !== ownerKey(before);
+
+/** Slack: "<who> assigned <task> to <owner>", for any assignment by anyone. */
+function postAssignment(actor: { id: string; email: string }, task: Task) {
+  postToSlackLater(async () => {
+    const [user, mod] = await Promise.all([
+      prisma.user.findUnique({ where: { id: actor.id }, select: { name: true } }),
+      prisma.module.findUnique({ where: { id: task.moduleId }, select: { number: true, name: true } }),
+    ]);
+    if (!mod) return null;
+    const due = task.dueDate ? `, due ${formatDay(task.dueDate.toISOString().slice(0, 10), todayInZone())}` : "";
+    return (
+      `:bust_in_silhouette: *${slackEscape(user?.name ?? actor.email)}* assigned *${slackEscape(task.title)}* to *${slackEscape(task.owner!)}*` +
+      ` · <${appUrl(`/modules/${task.moduleId}`)}|${slackEscape(moduleTitle(mod))}> (${TASK_PHASE_LABELS[task.phase]}${due})`
+    );
+  });
+}
+
 export async function createTask(moduleId: string, input: TaskInput): Promise<TaskResult> {
   const user = await requireUser();
   const { errors, fields } = validate(input);
@@ -79,7 +104,9 @@ export async function createTask(moduleId: string, input: TaskInput): Promise<Ta
     entityId: task.id,
     moduleId,
     after: task,
+    slack: !isAssignment(null, task), // an assignment gets its own message
   });
+  if (isAssignment(null, task)) postAssignment(user, task);
   changed();
   return {};
 }
@@ -104,7 +131,9 @@ async function changeTask(
     moduleId,
     before,
     after,
+    slack: !isAssignment(before, after), // an assignment gets its own message
   });
+  if (isAssignment(before, after)) postAssignment(user, after);
   changed();
   return {};
 }
