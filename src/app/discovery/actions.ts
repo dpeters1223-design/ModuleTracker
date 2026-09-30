@@ -9,6 +9,8 @@ import { cleanDiscovery, type DiscoveryInput, type DiscoveryScene } from "@/lib/
 import { MODULE_STATUS_LABELS, STATUS_PHASE, TASK_PHASE_LABELS } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import { logActivity } from "@/lib/activity";
+import { watchedPeople } from "@/lib/activity-feed";
+import { appUrl, postToSlackLater, slackEscape } from "@/lib/slack";
 
 // The Module columns the Discovery Form owns (what an edit can change and undo restores).
 const DISCOVERY_KEYS = [
@@ -84,6 +86,18 @@ export async function submitDiscovery(input: DiscoveryInput): Promise<DiscoveryR
     moduleId: mod.id,
     after: { id: mod.id },
   });
+  // Slack alert when someone in NOTIFY_ABOUT (Tom) starts a module.
+  if (watchedPeople().includes(user.email.toLowerCase())) {
+    postToSlackLater(async () => {
+      const who = (await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } }))?.name ?? user.email;
+      const scenes = `${data.scenes.length} scene${data.scenes.length === 1 ? "" : "s"}`;
+      const extra = [scenes, data.targetCompletion && `target ${data.targetCompletion}`].filter(Boolean).join(", ");
+      return (
+        `:new: *${slackEscape(who)}* started a new module: *<${appUrl(`/modules/${mod.id}`)}|${slackEscape(moduleTitle(mod))}>* (${slackEscape(extra)})` +
+        (data.description ? `\n>${slackEscape(data.description).replace(/\n/g, "\n>")}` : "")
+      );
+    });
+  }
   changed();
   redirect(`/modules/${mod.id}?submitted=1`);
 }
