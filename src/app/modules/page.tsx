@@ -142,6 +142,7 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
                     owner: t.owner,
                     start: t.startDate ? t.startDate.toISOString().slice(0, 10) : "",
                     due: t.dueDate ? t.dueDate.toISOString().slice(0, 10) : "",
+                    parent: t.parentId ? tasks.find((p) => p.id === t.parentId)?.title : null,
                   }))
               )
           )}

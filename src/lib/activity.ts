@@ -131,7 +131,12 @@ export async function undoActivity(actor: Actor, id: string): Promise<{ error?: 
       } else if (kind === "delete") {
         if (!before) throw new Error("No saved copy to restore.");
         if (entry.entityType === "documentLink") await recreateLinks(tx, [before]);
-        else await m.create({ data: before });
+        else if (entry.entityType === "task" && Array.isArray(before.subtasks)) {
+          // A deleted task's copy carries its sub-tasks: restore the task, then them.
+          const { subtasks, ...task } = before;
+          await m.create({ data: task });
+          if ((subtasks as Row[]).length) await m.createMany({ data: subtasks });
+        } else await m.create({ data: before });
       } else if (kind === "update") {
         if (!before) throw new Error("No saved copy to restore.");
         const { id: rowId, ...fields } = before;

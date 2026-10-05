@@ -28,6 +28,8 @@ export type BoardTask = {
   status: string;
   owner: string | null;
   due: string; // "YYYY-MM-DD" or ""
+  /** Sub-task progress, when the task has sub-tasks. */
+  subtasks?: { done: number; total: number };
 };
 
 const PHASES = Object.keys(TASK_PHASE_LABELS) as TaskPhase[];
@@ -51,6 +53,11 @@ function CardBody({ task, today }: { task: BoardTask; today: string }) {
         <p className="text-xs text-zinc-500">
           {[task.owner, task.due && `Due ${formatDay(task.due, today)}`].filter(Boolean).join(" · ")}
           {late && <span className="ml-1 font-medium text-red-700 dark:text-red-400">Overdue</span>}
+        </p>
+      )}
+      {task.subtasks && (
+        <p className="text-xs text-zinc-500">
+          Sub-tasks {task.subtasks.done}/{task.subtasks.total}
         </p>
       )}
     </>

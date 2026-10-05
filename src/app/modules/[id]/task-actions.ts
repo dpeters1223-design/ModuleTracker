@@ -86,20 +86,31 @@ function postAssignment(actor: { id: string; email: string }, task: Task) {
   });
 }
 
-export async function createTask(moduleId: string, input: TaskInput): Promise<TaskResult> {
+/** Adds a task, or with `parentId` a sub-task of that task (same phase as its parent). */
+export async function createTask(moduleId: string, input: TaskInput, parentId?: string | null): Promise<TaskResult> {
   const user = await requireUser();
   const { errors, fields } = validate(input);
   if (errors.length) return { errors };
+  // Sub-tasks go one level deep and share the parent's phase.
+  const parent = parentId
+    ? await prisma.task.findFirst({ where: { id: parentId, moduleId, parentId: null }, select: { id: true, title: true, phase: true } })
+    : null;
+  if (parentId && !parent) return { errors: ["That task no longer exists."] };
+  if (parent) fields.phase = parent.phase;
 
   const last = await prisma.task.findFirst({
     where: { moduleId },
     orderBy: { order: "desc" },
     select: { order: true },
   });
-  const task = await prisma.task.create({ data: { moduleId, order: (last?.order ?? 0) + 1, ...fields } });
+  const task = await prisma.task.create({
+    data: { moduleId, order: (last?.order ?? 0) + 1, parentId: parent?.id ?? null, ...fields },
+  });
   await logActivity(user, {
     action: "task.create",
-    summary: `Added task "${task.title}" (${TASK_PHASE_LABELS[task.phase]})`,
+    summary: parent
+      ? `Added sub-task "${task.title}" to "${parent.title}"`
+      : `Added task "${task.title}" (${TASK_PHASE_LABELS[task.phase]})`,
     entityType: "task",
     entityId: task.id,
     moduleId,
@@ -122,7 +133,12 @@ async function changeTask(
 ): Promise<TaskResult> {
   const before = await prisma.task.findFirst({ where: { id: taskId, moduleId } });
   if (!before) return { errors: ["That task no longer exists."] };
+  // A sub-task's phase follows its parent's; a parent's sub-tasks move with it.
+  if (before.parentId) delete data.phase;
   const after = await prisma.task.update({ where: { id: taskId }, data });
+  if (after.phase !== before.phase) {
+    await prisma.task.updateMany({ where: { parentId: taskId }, data: { phase: after.phase } });
+  }
   await logActivity(user, {
     action,
     summary: summary(before, after),
@@ -187,12 +203,14 @@ export async function setTaskPhase(
 
 export async function deleteTask(moduleId: string, taskId: string): Promise<TaskResult> {
   const user = await requireUser();
-  const task = await prisma.task.findFirst({ where: { id: taskId, moduleId } });
+  const task = await prisma.task.findFirst({ where: { id: taskId, moduleId }, include: { subtasks: true } });
   if (!task) return {};
+  // Sub-tasks go with it (cascade); they're kept in the history copy so Undo restores them too.
   await prisma.task.delete({ where: { id: taskId } });
+  const n = task.subtasks.length;
   await logActivity(user, {
     action: "task.delete",
-    summary: `Deleted task "${task.title}"`,
+    summary: `Deleted ${task.parentId ? "sub-task" : "task"} "${task.title}"${n ? ` and its ${n} sub-task${n === 1 ? "" : "s"}` : ""}`,
     entityType: "task",
     entityId: taskId,
     moduleId,

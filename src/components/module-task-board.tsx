@@ -23,15 +23,22 @@ export function ModuleTaskBoard({
 }) {
   const done = tasks.filter((t) => t.status === "completed").length;
   const overdue = tasks.filter((t) => t.status !== "completed" && t.dueDate && day(t.dueDate) < today).length;
-  const boardTasks: BoardTask[] = tasks.map((t) => ({
-    id: t.id,
-    moduleId: t.moduleId,
-    title: t.title,
-    phase: t.phase,
-    status: t.status,
-    owner: t.owner,
-    due: day(t.dueDate),
-  }));
+  // Sub-tasks aren't cards of their own; their parent's card counts them.
+  const subtasks = (id: string) => tasks.filter((t) => t.parentId === id);
+  const boardTasks: BoardTask[] = tasks
+    .filter((t) => !t.parentId)
+    .map((t) => ({
+      id: t.id,
+      moduleId: t.moduleId,
+      title: t.title,
+      phase: t.phase,
+      status: t.status,
+      owner: t.owner,
+      due: day(t.dueDate),
+      subtasks: subtasks(t.id).length
+        ? { done: subtasks(t.id).filter((s) => s.status === "completed").length, total: subtasks(t.id).length }
+        : undefined,
+    }));
 
   return (
     <section className="space-y-2">

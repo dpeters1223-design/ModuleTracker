@@ -17,6 +17,8 @@ export type GanttTask = {
   owner: string | null;
   start: string; // "YYYY-MM-DD" or ""
   due: string;
+  /** The parent task's title, for a sub-task. */
+  parent?: string | null;
 };
 
 const DAY = 86_400_000;
@@ -169,7 +171,11 @@ export function GanttChart({
                   >
                     <div className="min-w-0 px-3 py-1.5">
                       <p className={`truncate text-sm ${done ? "text-zinc-400 line-through" : ""}`}>{t.title}</p>
-                      {t.owner && <p className="truncate text-xs text-zinc-500">{t.owner}</p>}
+                      {(t.owner || t.parent) && (
+                        <p className="truncate text-xs text-zinc-500">
+                          {[t.parent && `↳ ${t.parent}`, t.owner].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                     </div>
                     <div className="relative">
                       {gridBg}

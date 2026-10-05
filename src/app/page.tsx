@@ -60,7 +60,7 @@ export default async function DashboardPage() {
     prisma.module.findMany({ select: { id: true, number: true, name: true, status: true }, orderBy: { createdAt: "desc" } }),
     prisma.task.findMany({
       where: { status: { not: "completed" } },
-      include: { module: { select: { id: true, number: true, name: true } } },
+      include: { module: { select: { id: true, number: true, name: true } }, parent: { select: { title: true } } },
       orderBy: [{ dueDate: "asc" }, { order: "asc" }],
     }),
     prisma.changeOrder.findMany({
@@ -104,6 +104,7 @@ export default async function DashboardPage() {
           <li key={t.id} className="flex items-start justify-between gap-3 text-sm">
             <div className="min-w-0">
               <p className="truncate font-medium">{t.title}</p>
+              {t.parent && <p className="truncate text-xs text-zinc-500">↳ Sub-task of {t.parent.title}</p>}
               <p className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-zinc-500 sm:flex-nowrap sm:gap-1">
                 <PhaseDot phase={t.phase} />
                 <Link href={`/modules/${t.module.id}`} className="truncate hover:underline">

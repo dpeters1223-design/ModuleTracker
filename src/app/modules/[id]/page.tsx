@@ -91,6 +91,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     startDate: day(t.startDate),
     dueDate: day(t.dueDate),
     notes: t.notes ?? "",
+    parentId: t.parentId,
   }));
   const owners = ownerRows.map((o) => o.owner!).filter(Boolean);
   const today = todayInZone();
@@ -203,6 +204,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
               owner: t.owner,
               start: day(t.startDate),
               due: day(t.dueDate),
+              parent: t.parentId ? taskRecords.find((p) => p.id === t.parentId)?.title : null,
             }))}
           />
         )}

@@ -7,7 +7,7 @@ import { PhaseDot } from "@/components/phase-dot";
 import { formatDay as fmt, TASK_STATUSES as STATUSES } from "@/lib/task-format";
 import { createTask, deleteTask, updateTask, type TaskInput, type TaskResult } from "./task-actions";
 
-export type TaskRow = TaskInput & { id: string };
+export type TaskRow = TaskInput & { id: string; parentId: string | null };
 
 const PHASES = Object.keys(TASK_PHASE_LABELS) as (keyof typeof TASK_PHASE_LABELS)[];
 
@@ -30,12 +30,15 @@ function TaskForm({
   submitLabel,
   onSubmit,
   onCancel,
+  subtask = false,
 }: {
   initial: TaskInput;
   owners: string[];
   submitLabel: string;
   onSubmit: (input: TaskInput) => Promise<TaskResult>;
   onCancel: () => void;
+  /** Sub-tasks have no phase picker: they always share their parent's phase. */
+  subtask?: boolean;
 }) {
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<string[]>([]);
@@ -62,22 +65,24 @@ function TaskForm({
       )}
       <input
         className={inputCls}
-        placeholder="Task, e.g. Film scenes 1–4"
+        placeholder={subtask ? "Sub-task, e.g. Export the scene 2 media" : "Task, e.g. Film scenes 1–4"}
         value={form.title}
         onChange={(e) => set("title", e.target.value)}
         autoFocus
       />
       <div className="grid gap-3 sm:grid-cols-3">
-        <label className="space-y-1 text-xs text-zinc-500">
-          Phase
-          <select className={inputCls} value={form.phase} onChange={(e) => set("phase", e.target.value)}>
-            {PHASES.map((p) => (
-              <option key={p} value={p}>
-                {TASK_PHASE_LABELS[p]}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!subtask && (
+          <label className="space-y-1 text-xs text-zinc-500">
+            Phase
+            <select className={inputCls} value={form.phase} onChange={(e) => set("phase", e.target.value)}>
+              {PHASES.map((p) => (
+                <option key={p} value={p}>
+                  {TASK_PHASE_LABELS[p]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="space-y-1 text-xs text-zinc-500">
           Owner
           <input
@@ -139,6 +144,79 @@ function TaskForm({
   );
 }
 
+/** One task's line: status, title, owner and dates, notes, and its actions. */
+function TaskLine({
+  moduleId,
+  task,
+  today,
+  waitingOn,
+  pending,
+  onEdit,
+  onAddSubtask,
+  onDelete,
+}: {
+  moduleId: string;
+  task: TaskRow;
+  today: string;
+  /** The first unfinished sub-task, shown as "Waiting on …" on its parent. */
+  waitingOn?: TaskRow;
+  pending: boolean;
+  onEdit: () => void;
+  onAddSubtask?: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-start gap-3">
+      <TaskStatusSelect moduleId={moduleId} taskId={task.id} title={task.title} status={task.status} />
+      <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
+        <p className={`text-sm ${task.status === "completed" ? "text-zinc-400 line-through" : "font-medium"}`}>
+          {task.title}
+        </p>
+        <p className="text-xs text-zinc-500">
+          {[
+            task.owner,
+            task.startDate && task.dueDate
+              ? `${fmt(task.startDate, today)} → ${fmt(task.dueDate, today)}`
+              : task.dueDate
+                ? `Due ${fmt(task.dueDate, today)}`
+                : task.startDate
+                  ? `Starts ${fmt(task.startDate, today)}`
+                  : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          {isOverdue(task, today) && (
+            <span className="ml-1 font-medium text-red-700 dark:text-red-400">Overdue</span>
+          )}
+        </p>
+        {waitingOn && (
+          <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
+            Waiting on {waitingOn.owner ? `${waitingOn.owner}: ` : ""}
+            {waitingOn.title}
+            {waitingOn.dueDate && ` (due ${fmt(waitingOn.dueDate, today)})`}
+          </p>
+        )}
+        {task.notes && (
+          <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-400">{task.notes}</p>
+        )}
+      </div>
+      <div className="ml-auto flex gap-3 sm:ml-0">
+        {onAddSubtask && (
+          <button type="button" className={linkBtn} onClick={onAddSubtask}>
+            + Sub-task
+          </button>
+        )}
+        <button type="button" className={linkBtn} onClick={onEdit}>
+          Edit
+        </button>
+        <button type="button" className={linkBtn} disabled={pending} onClick={onDelete}>
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** With `addOnly`, shows just the summary line and "Add task" (the board view renders the tasks). */
 export function TaskList({
   moduleId,
@@ -155,16 +233,22 @@ export function TaskList({
 }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The task whose "+ Sub-task" form is open.
+  const [subFor, setSubFor] = useState<string | null>(null);
   const [lastPhase, setLastPhase] = useState<string>("pre_production");
   const [pending, startTransition] = useTransition();
 
   const done = tasks.filter((t) => t.status === "completed").length;
   const overdue = tasks.filter((t) => isOverdue(t, today)).length;
+  const subtasksOf = (id: string) => tasks.filter((t) => t.parentId === id);
+  // Top-level tasks (and any sub-task whose parent isn't in this list) are grouped by phase.
+  const ids = new Set(tasks.map((t) => t.id));
+  const topLevel = tasks.filter((t) => !t.parentId || !ids.has(t.parentId));
   const byPhase = addOnly
     ? []
     : PHASES.map((phase) => ({
         phase,
-        tasks: tasks.filter((t) => t.phase === phase),
+        tasks: topLevel.filter((t) => t.phase === phase),
       })).filter((g) => g.tasks.length);
 
   const blank: TaskInput = {
@@ -176,6 +260,34 @@ export function TaskList({
     dueDate: "",
     notes: "",
   };
+  // Only one form open at a time: adding a task, editing one, or adding a sub-task.
+  const openOnly = (which: "add" | "edit" | "sub", id: string | null = null) => {
+    setAdding(which === "add");
+    setEditingId(which === "edit" ? id : null);
+    setSubFor(which === "sub" ? id : null);
+  };
+  const remove = (task: TaskRow) => {
+    const n = subtasksOf(task.id).length;
+    const what = n ? `"${task.title}" and its ${n} sub-task${n === 1 ? "" : "s"}` : `"${task.title}"`;
+    if (!confirm(`Delete ${what}?`)) return;
+    startTransition(async () => {
+      await deleteTask(moduleId, task.id);
+    });
+  };
+  const editForm = (task: TaskRow) => (
+    <TaskForm
+      initial={task}
+      owners={owners}
+      submitLabel="Save"
+      subtask={!!task.parentId}
+      onCancel={() => setEditingId(null)}
+      onSubmit={async (input) => {
+        const res = await updateTask(moduleId, task.id, input);
+        if (!res.errors?.length) setEditingId(null);
+        return res;
+      }}
+    />
+  );
 
   return (
     <div className="space-y-4">
@@ -193,14 +305,7 @@ export function TaskList({
           )}
         </p>
         {!adding && (
-          <button
-            type="button"
-            className={secondaryBtn}
-            onClick={() => {
-              setEditingId(null);
-              setAdding(true);
-            }}
-          >
+          <button type="button" className={secondaryBtn} onClick={() => openOnly("add")}>
             + Add task
           </button>
         )}
@@ -223,103 +328,92 @@ export function TaskList({
         />
       )}
 
-      {byPhase.map(({ phase, tasks: group }) => (
-        <section key={phase} className="space-y-2">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <PhaseDot phase={phase} />
-            {TASK_PHASE_LABELS[phase]}
-            <span className="text-xs font-normal text-zinc-500">
-              {group.filter((t) => t.status === "completed").length}/{group.length}
-            </span>
-          </h3>
-          <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
-            {group.map((task) =>
-              editingId === task.id ? (
-                <li key={task.id} className="p-2">
-                  <TaskForm
-                    initial={task}
-                    owners={owners}
-                    submitLabel="Save"
-                    onCancel={() => setEditingId(null)}
-                    onSubmit={async (input) => {
-                      const res = await updateTask(moduleId, task.id, input);
-                      if (!res.errors?.length) setEditingId(null);
-                      return res;
-                    }}
-                  />
-                </li>
-              ) : (
-                <li key={task.id} className="flex flex-wrap items-start gap-3 px-3 py-2.5">
-                  <TaskStatusSelect
-                    moduleId={moduleId}
-                    taskId={task.id}
-                    title={task.title}
-                    status={task.status}
-                  />
-                  <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
-                    <p
-                      className={`text-sm ${
-                        task.status === "completed" ? "text-zinc-400 line-through" : "font-medium"
-                      }`}
-                    >
-                      {task.title}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      {[
-                        task.owner,
-                        task.startDate && task.dueDate
-                          ? `${fmt(task.startDate, today)} → ${fmt(task.dueDate, today)}`
-                          : task.dueDate
-                            ? `Due ${fmt(task.dueDate, today)}`
-                            : task.startDate
-                              ? `Starts ${fmt(task.startDate, today)}`
-                              : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                      {isOverdue(task, today) && (
-                        <span className="ml-1 font-medium text-red-700 dark:text-red-400">
-                          Overdue
-                        </span>
-                      )}
-                    </p>
-                    {task.notes && (
-                      <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-400">
-                        {task.notes}
-                      </p>
+      {byPhase.map(({ phase, tasks: group }) => {
+        const all = group.flatMap((t) => [t, ...subtasksOf(t.id)]);
+        return (
+          <section key={phase} className="space-y-2">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <PhaseDot phase={phase} />
+              {TASK_PHASE_LABELS[phase]}
+              <span className="text-xs font-normal text-zinc-500">
+                {all.filter((t) => t.status === "completed").length}/{all.length}
+              </span>
+            </h3>
+            <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
+              {group.map((task) => {
+                const subs = subtasksOf(task.id);
+                const waitingOn =
+                  task.status !== "completed"
+                    ? subs
+                        .filter((s) => s.status !== "completed")
+                        .sort((a, b) => (a.dueDate || "9999").localeCompare(b.dueDate || "9999"))[0]
+                    : undefined;
+                return (
+                  <li key={task.id} className="px-3 py-2.5">
+                    {editingId === task.id ? (
+                      editForm(task)
+                    ) : (
+                      <TaskLine
+                        moduleId={moduleId}
+                        task={task}
+                        today={today}
+                        waitingOn={waitingOn}
+                        pending={pending}
+                        onEdit={() => openOnly("edit", task.id)}
+                        onAddSubtask={task.parentId ? undefined : () => openOnly("sub", task.id)}
+                        onDelete={() => remove(task)}
+                      />
                     )}
-                  </div>
-                  <div className="ml-auto flex gap-3 sm:ml-0">
-                    <button
-                      type="button"
-                      className={linkBtn}
-                      onClick={() => {
-                        setAdding(false);
-                        setEditingId(task.id);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className={linkBtn}
-                      disabled={pending}
-                      onClick={() => {
-                        if (!confirm(`Delete "${task.title}"?`)) return;
-                        startTransition(async () => {
-                          await deleteTask(moduleId, task.id);
-                        });
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </li>
-              )
-            )}
-          </ul>
-        </section>
-      ))}
+                    {(subs.length > 0 || subFor === task.id) && (
+                      <div className="mt-2 ml-3 space-y-2 border-l-2 border-zinc-300 pl-3 sm:ml-8 dark:border-zinc-600">
+                        {subs.length > 0 && (
+                          <p className="text-xs font-medium text-zinc-500">
+                            Sub-tasks · {subs.filter((s) => s.status === "completed").length} of {subs.length} done
+                          </p>
+                        )}
+                        {subs.length > 0 && (
+                          <ul className="space-y-2">
+                            {subs.map((sub) => (
+                              <li key={sub.id}>
+                                {editingId === sub.id ? (
+                                  editForm(sub)
+                                ) : (
+                                  <TaskLine
+                                    moduleId={moduleId}
+                                    task={sub}
+                                    today={today}
+                                    pending={pending}
+                                    onEdit={() => openOnly("edit", sub.id)}
+                                    onDelete={() => remove(sub)}
+                                  />
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {subFor === task.id && (
+                          <TaskForm
+                            initial={{ ...blank, phase: task.phase }}
+                            owners={owners}
+                            submitLabel="Add sub-task"
+                            subtask
+                            onCancel={() => setSubFor(null)}
+                            onSubmit={async (input) => {
+                              const res = await createTask(moduleId, input, task.id);
+                              if (!res.errors?.length) setSubFor(null);
+                              return res;
+                            }}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }

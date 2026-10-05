@@ -200,9 +200,14 @@ model Task {
   dueDate   DateTime?
   notes     String?
   order     Int        @default(0)
+  /// Set on a sub-task: the task it belongs to (one level only). Deleting the parent deletes it.
+  parentId  String?
 
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  parent   Task?  @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks Task[] @relation("Subtasks")
 
+  @@index([parentId])
   @@map("tasks")
 }
 

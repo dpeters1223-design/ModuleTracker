@@ -56,7 +56,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
   const [tasks, modules, ownerRows] = await Promise.all([
     prisma.task.findMany({
       where,
-      include: { module: { select: { id: true, number: true, name: true } } },
+      include: { module: { select: { id: true, number: true, name: true } }, parent: { select: { title: true } } },
       orderBy: [{ dueDate: "asc" }, { order: "asc" }],
     }),
     prisma.module.findMany({ select: { id: true, number: true, name: true }, orderBy: { createdAt: "desc" } }),
@@ -169,6 +169,7 @@ export default async function TasksPage(props: PageProps<"/tasks">) {
                       <p className={`text-sm ${t.status === "completed" ? "text-zinc-400 line-through" : "font-medium"}`}>
                         {t.title}
                       </p>
+                      {t.parent && <p className="text-xs text-zinc-500">↳ Sub-task of {t.parent.title}</p>}
                       <p className="text-xs text-zinc-500">
                         <Link
                           href={`/modules/${t.module.id}`}
