@@ -237,8 +237,21 @@ export function TaskList({
   const [subFor, setSubFor] = useState<string | null>(null);
   const [lastPhase, setLastPhase] = useState<string>("pre_production");
   const [pending, startTransition] = useTransition();
+  const isDone = (t: TaskRow) => t.status === "completed";
+  // Phases folded away, and phases showing their completed tasks (hidden by default).
+  // Phases where everything is done start folded.
+  const [collapsed, setCollapsed] = useState<Set<string>>(
+    () => new Set(PHASES.filter((p) => tasks.some((t) => t.phase === p) && tasks.every((t) => t.phase !== p || isDone(t))))
+  );
+  const [showDone, setShowDone] = useState<Set<string>>(() => new Set());
+  const toggle = (set: Set<string>, update: (s: Set<string>) => void, phase: string) => {
+    const next = new Set(set);
+    if (next.has(phase)) next.delete(phase);
+    else next.add(phase);
+    update(next);
+  };
 
-  const done = tasks.filter((t) => t.status === "completed").length;
+  const done = tasks.filter(isDone).length;
   const overdue = tasks.filter((t) => isOverdue(t, today)).length;
   const subtasksOf = (id: string) => tasks.filter((t) => t.parentId === id);
   // Top-level tasks (and any sub-task whose parent isn't in this list) are grouped by phase.
@@ -250,6 +263,7 @@ export function TaskList({
         phase,
         tasks: topLevel.filter((t) => t.phase === phase),
       })).filter((g) => g.tasks.length);
+  const allCollapsed = byPhase.length > 0 && byPhase.every((g) => collapsed.has(g.phase));
 
   const blank: TaskInput = {
     title: "",
@@ -304,11 +318,22 @@ export function TaskList({
             </>
           )}
         </p>
-        {!adding && (
-          <button type="button" className={secondaryBtn} onClick={() => openOnly("add")}>
-            + Add task
-          </button>
-        )}
+        <div className="flex items-center gap-4">
+          {byPhase.length > 1 && (
+            <button
+              type="button"
+              className={linkBtn}
+              onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(byPhase.map((g) => g.phase)))}
+            >
+              {allCollapsed ? "Expand all" : "Collapse all"}
+            </button>
+          )}
+          {!adding && (
+            <button type="button" className={secondaryBtn} onClick={() => openOnly("add")}>
+              + Add task
+            </button>
+          )}
+        </div>
       </div>
 
       {adding && (
@@ -330,18 +355,54 @@ export function TaskList({
 
       {byPhase.map(({ phase, tasks: group }) => {
         const all = group.flatMap((t) => [t, ...subtasksOf(t.id)]);
+        const doneCount = all.filter(isDone).length;
+        const isCollapsed = collapsed.has(phase);
+        const showingDone = showDone.has(phase);
+        // Completed tasks are hidden unless shown; a done task with open sub-tasks stays.
+        const visible = showingDone
+          ? group
+          : group.filter((t) => !isDone(t) || subtasksOf(t.id).some((s) => !isDone(s)));
+        const visibleSubs = (id: string) => subtasksOf(id).filter((s) => showingDone || !isDone(s));
+        const hiddenCount = all.length - visible.reduce((n, t) => n + 1 + visibleSubs(t.id).length, 0);
+        const toggleDoneBtn = "underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100";
         return (
           <section key={phase} className="space-y-2">
-            <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <PhaseDot phase={phase} />
-              {TASK_PHASE_LABELS[phase]}
-              <span className="text-xs font-normal text-zinc-500">
-                {all.filter((t) => t.status === "completed").length}/{all.length}
-              </span>
+            <h3>
+              <button
+                type="button"
+                aria-expanded={!isCollapsed}
+                onClick={() => toggle(collapsed, setCollapsed, phase)}
+                className="flex w-full items-center gap-2 rounded text-left text-sm font-semibold hover:text-zinc-600 dark:hover:text-zinc-300"
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  className={`h-3.5 w-3.5 shrink-0 text-zinc-500 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
+                  fill="currentColor"
+                  aria-hidden
+                >
+                  <path d="M6 3.5 10.5 8 6 12.5z" />
+                </svg>
+                <PhaseDot phase={phase} />
+                {TASK_PHASE_LABELS[phase]}
+                <span className="text-xs font-normal text-zinc-500">
+                  {doneCount}/{all.length}
+                  {isCollapsed && ` · ${all.length - doneCount} open`}
+                </span>
+              </button>
             </h3>
+            {!isCollapsed && visible.length === 0 && (
+              <p className="pl-5 text-xs text-zinc-500">
+                All {doneCount} done.{" "}
+                <button type="button" className={toggleDoneBtn} onClick={() => toggle(showDone, setShowDone, phase)}>
+                  Show completed
+                </button>
+              </p>
+            )}
+            {!isCollapsed && visible.length > 0 && (
             <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
-              {group.map((task) => {
+              {visible.map((task) => {
                 const subs = subtasksOf(task.id);
+                const shownSubs = visibleSubs(task.id);
                 const waitingOn =
                   task.status !== "completed"
                     ? subs
@@ -371,9 +432,9 @@ export function TaskList({
                             Sub-tasks · {subs.filter((s) => s.status === "completed").length} of {subs.length} done
                           </p>
                         )}
-                        {subs.length > 0 && (
+                        {shownSubs.length > 0 && (
                           <ul className="space-y-2">
-                            {subs.map((sub) => (
+                            {shownSubs.map((sub) => (
                               <li key={sub.id}>
                                 {editingId === sub.id ? (
                                   editForm(sub)
@@ -411,6 +472,16 @@ export function TaskList({
                 );
               })}
             </ul>
+            )}
+            {!isCollapsed && visible.length > 0 && doneCount > 0 && (hiddenCount > 0 || showingDone) && (
+              <button
+                type="button"
+                className={`pl-5 text-xs text-zinc-500 ${toggleDoneBtn}`}
+                onClick={() => toggle(showDone, setShowDone, phase)}
+              >
+                {showingDone ? "Hide completed" : `Show ${hiddenCount} completed`}
+              </button>
+            )}
           </section>
         );
       })}
