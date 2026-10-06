@@ -3,7 +3,9 @@ import Link from "next/link";
 import { connection } from "next/server";
 import type { ModuleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { CHANGE_ORDER_STATUS_LABELS, CLOSED_CHANGE_ORDER_STATUSES, MODULE_STATUS_LABELS, TASK_PHASE_LABELS } from "@/lib/labels";
+import { auth } from "@/auth";
+import { CHANGE_ORDER_STATUS_LABELS, CLOSED_CHANGE_ORDER_STATUSES, MODULE_STATUS_LABELS, TASK_PHASE_LABELS, TASK_STATUS_LABELS } from "@/lib/labels";
+import { buildOwnerIndex, isOwnedBy } from "@/lib/team";
 import { statusPillStyle } from "@/lib/phase-colors";
 import { moduleTitle } from "@/lib/script-template";
 import { formatDay } from "@/lib/task-format";
@@ -56,7 +58,9 @@ export default async function DashboardPage() {
   const weekStart = addDays(today, -((noon(today).getUTCDay() + 6) % 7));
   const weekEnd = addDays(weekStart, 6);
 
-  const [modules, openTasks, openChangeOrders, activity] = await Promise.all([
+  const [session, users, modules, openTasks, openChangeOrders, activity] = await Promise.all([
+    auth(),
+    prisma.user.findMany({ select: { email: true, name: true } }),
     prisma.module.findMany({ select: { id: true, number: true, name: true, status: true }, orderBy: { createdAt: "desc" } }),
     prisma.task.findMany({
       where: { status: { not: "completed" } },
@@ -92,6 +96,12 @@ export default async function DashboardPage() {
   const overdue = openTasks.filter((t) => t.dueDate && day(t.dueDate) < today);
   const thisWeek = openTasks.filter((t) => t.dueDate && day(t.dueDate) >= today && day(t.dueDate) <= weekEnd);
   const inProgress = modules.filter((m) => !["on_hold", "not_started", "deployed"].includes(m.status));
+  // My tasks: open tasks with my name in the Owner box. The card shows what needs me now:
+  // overdue, due by Sunday, or already in progress.
+  const ownerIndex = buildOwnerIndex(users);
+  const myEmail = session?.user?.email ?? "";
+  const mine = myEmail ? openTasks.filter((t) => isOwnedBy(t.owner, myEmail, ownerIndex)) : [];
+  const myNow = mine.filter((t) => (t.dueDate && day(t.dueDate) <= weekEnd) || t.status === "in_progress");
   const stages = (Object.keys(MODULE_STATUS_LABELS) as ModuleStatus[])
     .map((s) => ({ s, mods: modules.filter((m) => m.status === s) }))
     .filter((x) => x.mods.length);
@@ -114,8 +124,12 @@ export default async function DashboardPage() {
                 {t.owner && <span>· {t.owner}</span>}
               </p>
             </div>
-            <span className={`shrink-0 text-xs ${late ? "font-medium text-red-700 dark:text-red-400" : "text-zinc-500"}`}>
-              {formatDay(day(t.dueDate), today)}
+            <span
+              className={`shrink-0 text-xs ${
+                late || (t.dueDate && day(t.dueDate) < today) ? "font-medium text-red-700 dark:text-red-400" : "text-zinc-500"
+              }`}
+            >
+              {t.dueDate ? formatDay(day(t.dueDate), today) : TASK_STATUS_LABELS[t.status]}
             </span>
           </li>
         ))}
@@ -141,6 +155,15 @@ export default async function DashboardPage() {
         <Stat label="Modules in progress" value={inProgress.length} href="/modules" />
         <Stat label="Open change orders" value={openChangeOrders.length} href="/changes" />
       </div>
+
+      <Card title={`My tasks (${mine.length} open)`} href="/my-tasks">
+        {taskList(
+          myNow,
+          mine.length
+            ? "Nothing of yours is overdue, due this week or in progress."
+            : "Nothing assigned to you. Tasks show up here when your name is in their Owner box."
+        )}
+      </Card>
 
       <Card title="Modules by stage" href="/modules?view=board">
         <div className="flex flex-wrap gap-3">

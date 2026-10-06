@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Kept to the everyday three. The app name goes to the Dashboard (home); change
+// Kept to the everyday few. The app name goes to the Dashboard (home); change
 // orders and activity are reached from the Dashboard and each module's page.
 const TABS = [
   { href: "/modules", label: "Modules" },
   { href: "/scripts", label: "Scripts" },
   { href: "/tasks", label: "Tasks" },
+  { href: "/my-tasks", label: "My tasks" },
 ];
 
 export function NavTabs() {

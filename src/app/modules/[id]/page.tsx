@@ -1,3 +1,4 @@
+import { teamNames } from "@/lib/team";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getModule } from "@/lib/modules";
@@ -98,7 +99,8 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     parentId: t.parentId,
     images: t.attachments,
   }));
-  const owners = ownerRows.map((o) => o.owner!).filter(Boolean);
+  // Suggest the team's names first, so new tasks name people the same way.
+  const owners = [...new Set([...teamNames(), ...ownerRows.map((o) => o.owner!).filter(Boolean)])];
   const today = todayInZone();
 
   return (
