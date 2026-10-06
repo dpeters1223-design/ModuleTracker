@@ -43,7 +43,11 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
   const script = await getScript(mod.id);
 
   const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity] = await Promise.all([
-    prisma.task.findMany({ where: { moduleId: mod.id }, orderBy: [{ dueDate: "asc" }, { order: "asc" }] }),
+    prisma.task.findMany({
+      where: { moduleId: mod.id },
+      include: { attachments: { select: { id: true, name: true }, orderBy: { addedAt: "asc" } } },
+      orderBy: [{ dueDate: "asc" }, { order: "asc" }],
+    }),
     prisma.task.findMany({
       where: { owner: { not: null } },
       distinct: ["owner"],
@@ -92,6 +96,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     dueDate: day(t.dueDate),
     notes: t.notes ?? "",
     parentId: t.parentId,
+    images: t.attachments,
   }));
   const owners = ownerRows.map((o) => o.owner!).filter(Boolean);
   const today = todayInZone();

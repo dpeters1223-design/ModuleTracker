@@ -13,7 +13,7 @@ import { appUrl, postToSlackLater, slackEscape } from "@/lib/slack";
 
 type Actor = { id: string; email: string };
 
-type EntityType = "task" | "documentLink" | "moduleVersion" | "changeOrder" | "module";
+type EntityType = "task" | "taskAttachment" | "documentLink" | "moduleVersion" | "changeOrder" | "module";
 
 export type LogInput = {
   action: string;
@@ -86,6 +86,7 @@ type Row = Record<string, unknown> & { id: string };
 function model(tx: Prisma.TransactionClient, type: string) {
   const m = {
     task: tx.task,
+    taskAttachment: tx.taskAttachment,
     documentLink: tx.documentLink,
     moduleVersion: tx.moduleVersion,
     changeOrder: tx.changeOrder,
@@ -131,11 +132,14 @@ export async function undoActivity(actor: Actor, id: string): Promise<{ error?: 
       } else if (kind === "delete") {
         if (!before) throw new Error("No saved copy to restore.");
         if (entry.entityType === "documentLink") await recreateLinks(tx, [before]);
-        else if (entry.entityType === "task" && Array.isArray(before.subtasks)) {
-          // A deleted task's copy carries its sub-tasks: restore the task, then them.
-          const { subtasks, ...task } = before;
+        else if (entry.entityType === "task" && (Array.isArray(before.subtasks) || Array.isArray(before.attachments))) {
+          // A deleted task's copy carries its sub-tasks and images: restore the task, then them.
+          const { subtasks, attachments, ...task } = before;
           await m.create({ data: task });
-          if ((subtasks as Row[]).length) await m.createMany({ data: subtasks });
+          if ((subtasks as Row[] | undefined)?.length) await m.createMany({ data: subtasks });
+          if ((attachments as Row[] | undefined)?.length) {
+            await tx.taskAttachment.createMany({ data: attachments as never });
+          }
         } else await m.create({ data: before });
       } else if (kind === "update") {
         if (!before) throw new Error("No saved copy to restore.");
@@ -164,10 +168,12 @@ export async function undoActivity(actor: Actor, id: string): Promise<{ error?: 
           documentLinks: Row[];
           versions: Row[];
           changeOrders: Row[];
+          taskAttachments?: Row[];
         };
         await tx.module.create({ data: t.module as never });
         if (t.scenes.length) await tx.scene.createMany({ data: t.scenes as never });
         if (t.tasks.length) await tx.task.createMany({ data: t.tasks as never });
+        if (t.taskAttachments?.length) await tx.taskAttachment.createMany({ data: t.taskAttachments as never });
         if (t.versions.length) await tx.moduleVersion.createMany({ data: t.versions as never });
         if (t.changeOrders.length) await tx.changeOrder.createMany({ data: t.changeOrders as never });
         await recreateLinks(tx, t.documentLinks);

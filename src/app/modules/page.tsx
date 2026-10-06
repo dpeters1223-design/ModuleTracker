@@ -27,7 +27,7 @@ export default async function ModulesPage(props: PageProps<"/modules">) {
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       include: { _count: { select: { scenes: true } } },
     }),
-    prisma.task.findMany({ orderBy: [{ dueDate: "asc" }, { order: "asc" }] }),
+    prisma.task.findMany({ include: { attachments: { select: { id: true } } }, orderBy: [{ dueDate: "asc" }, { order: "asc" }] }),
     prisma.documentLink.findMany({ where: { type: "script" }, select: { moduleId: true } }),
   ]);
 

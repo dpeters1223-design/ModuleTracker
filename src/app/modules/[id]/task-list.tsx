@@ -4,10 +4,11 @@ import { useState, useTransition } from "react";
 import { TASK_PHASE_LABELS, TASK_STATUS_LABELS } from "@/lib/labels";
 import { TaskStatusSelect } from "@/components/task-status";
 import { PhaseDot } from "@/components/phase-dot";
+import { AttachImagePanel, TaskImages, type TaskImage } from "@/components/task-images";
 import { formatDay as fmt, TASK_STATUSES as STATUSES } from "@/lib/task-format";
 import { createTask, deleteTask, updateTask, type TaskInput, type TaskResult } from "./task-actions";
 
-export type TaskRow = TaskInput & { id: string; parentId: string | null };
+export type TaskRow = TaskInput & { id: string; parentId: string | null; images: TaskImage[] };
 
 const PHASES = Object.keys(TASK_PHASE_LABELS) as (keyof typeof TASK_PHASE_LABELS)[];
 
@@ -165,6 +166,7 @@ function TaskLine({
   onAddSubtask?: () => void;
   onDelete: () => void;
 }) {
+  const [attaching, setAttaching] = useState(false);
   return (
     <div className="flex flex-wrap items-start gap-3">
       <TaskStatusSelect moduleId={moduleId} taskId={task.id} title={task.title} status={task.status} />
@@ -199,6 +201,8 @@ function TaskLine({
         {task.notes && (
           <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-400">{task.notes}</p>
         )}
+        <TaskImages moduleId={moduleId} images={task.images} />
+        {attaching && <AttachImagePanel moduleId={moduleId} taskId={task.id} onDone={() => setAttaching(false)} />}
       </div>
       <div className="ml-auto flex gap-3 sm:ml-0">
         {onAddSubtask && (
@@ -206,6 +210,9 @@ function TaskLine({
             + Sub-task
           </button>
         )}
+        <button type="button" className={linkBtn} onClick={() => setAttaching(true)}>
+          Attach image
+        </button>
         <button type="button" className={linkBtn} onClick={onEdit}>
           Edit
         </button>

@@ -86,6 +86,7 @@ export const GOOGLE_DOC_MIME = "application/vnd.google-apps.document";
 
 export type DriveFile = { id: string; name: string; webViewLink: string };
 export type DriveFileMeta = DriveFile & {
+  mimeType: string;
   modifiedTime: string;
   lastModifyingUser?: { displayName?: string };
   trashed: boolean;
@@ -147,7 +148,7 @@ export async function getFileMeta(token: string, fileId: string): Promise<DriveF
   try {
     return await driveFetch(
       token,
-      `${API}/files/${encodeURIComponent(fileId)}?fields=id,name,webViewLink,modifiedTime,lastModifyingUser(displayName),trashed`
+      `${API}/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,webViewLink,modifiedTime,lastModifyingUser(displayName),trashed`
     );
   } catch {
     return null;
@@ -232,4 +233,13 @@ export async function trashFile(token: string, fileId: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ trashed: true }),
   });
+}
+
+/** A file's contents, for streaming to the browser (task images). Throws when unavailable. */
+export async function fetchFileContent(token: string, fileId: string): Promise<Response> {
+  const res = await fetch(`${API}/files/${encodeURIComponent(fileId)}?alt=media`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new DriveError(`Google Drive error (${res.status}) fetching the file.`);
+  return res;
 }

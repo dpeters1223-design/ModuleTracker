@@ -28,6 +28,8 @@ export type BoardTask = {
   status: string;
   owner: string | null;
   due: string; // "YYYY-MM-DD" or ""
+  /** How many images are attached. */
+  images?: number;
   /** Sub-task progress, when the task has sub-tasks. */
   subtasks?: { done: number; total: number };
 };
@@ -55,9 +57,14 @@ function CardBody({ task, today }: { task: BoardTask; today: string }) {
           {late && <span className="ml-1 font-medium text-red-700 dark:text-red-400">Overdue</span>}
         </p>
       )}
-      {task.subtasks && (
+      {(task.subtasks || !!task.images) && (
         <p className="text-xs text-zinc-500">
-          Sub-tasks {task.subtasks.done}/{task.subtasks.total}
+          {[
+            task.subtasks && `Sub-tasks ${task.subtasks.done}/${task.subtasks.total}`,
+            task.images && `${task.images} image${task.images === 1 ? "" : "s"}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       )}
     </>

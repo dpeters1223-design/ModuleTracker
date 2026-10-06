@@ -222,6 +222,7 @@ export async function deleteModule(moduleId: string): Promise<DiscoveryResult> {
     include: { scenes: true, tasks: true, documentLinks: true, versions: true, changeOrders: true },
   });
   const { scenes, tasks, documentLinks, versions, changeOrders, ...moduleRow } = mod;
+  const taskAttachments = await prisma.taskAttachment.findMany({ where: { task: { moduleId } } });
   await prisma.module.delete({ where: { id: moduleId } });
   await logActivity(user, {
     action: "module.delete",
@@ -230,7 +231,7 @@ export async function deleteModule(moduleId: string): Promise<DiscoveryResult> {
     entityId: moduleId,
     moduleId,
     moduleLabel: moduleTitle(moduleRow),
-    before: { module: moduleRow, scenes, tasks, documentLinks, versions, changeOrders },
+    before: { module: moduleRow, scenes, tasks, documentLinks, versions, changeOrders, taskAttachments },
   });
   changed();
   redirect("/modules?deleted=1");

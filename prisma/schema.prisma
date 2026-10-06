@@ -78,6 +78,7 @@ model User {
   lastSeenActivityAt   DateTime?
 
   documentLinksAdded DocumentLink[]
+  attachmentsAdded   TaskAttachment[]
 
   @@map("users")
 }
@@ -203,12 +204,31 @@ model Task {
   /// Set on a sub-task: the task it belongs to (one level only). Deleting the parent deletes it.
   parentId  String?
 
-  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  parent   Task?  @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks Task[] @relation("Subtasks")
+  module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  parent      Task?            @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks    Task[]           @relation("Subtasks")
+  attachments TaskAttachment[]
 
   @@index([parentId])
   @@map("tasks")
+}
+
+/// An image attached to a task or sub-task. The file lives in the Drive owner's
+/// "ModuleTracker Attachments" folder; the app serves it to signed-in users.
+model TaskAttachment {
+  id          String   @id @default(cuid())
+  taskId      String
+  driveFileId String
+  name        String
+  mimeType    String
+  addedById   String?
+  addedAt     DateTime @default(now())
+
+  task    Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  addedBy User? @relation(fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@map("task_attachments")
 }
 
 /// A requested change to a module that is already signed off or deployed.

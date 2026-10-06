@@ -205,7 +205,10 @@ export async function deleteTask(moduleId: string, taskId: string): Promise<Task
   const user = await requireUser();
   const task = await prisma.task.findFirst({ where: { id: taskId, moduleId }, include: { subtasks: true } });
   if (!task) return {};
-  // Sub-tasks go with it (cascade); they're kept in the history copy so Undo restores them too.
+  // Sub-tasks and images go with it (cascade); they're kept in the history copy so Undo restores them.
+  const attachments = await prisma.taskAttachment.findMany({
+    where: { taskId: { in: [taskId, ...task.subtasks.map((s) => s.id)] } },
+  });
   await prisma.task.delete({ where: { id: taskId } });
   const n = task.subtasks.length;
   await logActivity(user, {
@@ -214,7 +217,7 @@ export async function deleteTask(moduleId: string, taskId: string): Promise<Task
     entityType: "task",
     entityId: taskId,
     moduleId,
-    before: task,
+    before: { ...task, attachments },
   });
   changed();
   return {};

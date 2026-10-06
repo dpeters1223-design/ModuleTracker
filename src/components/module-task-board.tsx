@@ -17,7 +17,8 @@ export function ModuleTaskBoard({
   showHeader = false,
 }: {
   module: Pick<Module, "id" | "number" | "name" | "status">;
-  tasks: Task[];
+  /** `attachments` (when loaded) gives each card an image count. */
+  tasks: (Task & { attachments?: unknown[] })[];
   today: string;
   showHeader?: boolean;
 }) {
@@ -35,6 +36,7 @@ export function ModuleTaskBoard({
       status: t.status,
       owner: t.owner,
       due: day(t.dueDate),
+      images: t.attachments?.length ?? 0,
       subtasks: subtasks(t.id).length
         ? { done: subtasks(t.id).filter((s) => s.status === "completed").length, total: subtasks(t.id).length }
         : undefined,
