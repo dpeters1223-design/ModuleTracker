@@ -25,7 +25,8 @@ const linkBtn = "text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-
 const isOverdue = (t: TaskRow, today: string) =>
   t.status !== "completed" && !!t.dueDate && t.dueDate < today;
 
-function TaskForm({
+/** The add/edit task form (also used to edit tasks from the Tasks and My tasks pages). */
+export function TaskForm({
   initial,
   owners,
   submitLabel,

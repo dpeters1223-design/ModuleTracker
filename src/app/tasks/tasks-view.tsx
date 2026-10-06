@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Prisma, TaskPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { buildOwnerIndex, isOwnedBy } from "@/lib/team";
+import { buildOwnerIndex, isOwnedBy, teamNames } from "@/lib/team";
+import { EditableTask } from "./editable-task";
 import { TASK_PHASE_LABELS } from "@/lib/labels";
 import { moduleTitle } from "@/lib/script-template";
 import { TaskStatusSelect } from "@/components/task-status";
@@ -91,6 +92,7 @@ export async function TasksView({
     { key: "done", title: "Done", tone: "", items: rows.filter((t) => !open(t)) },
   ].filter((g) => g.items.length);
 
+  const owners = [...new Set([...teamNames(), ...ownerRows.map((o) => o.owner!).filter(Boolean)])];
   const openCount = rows.filter(open).length;
   const overdueCount = groups.find((g) => g.key === "overdue")?.items.length ?? 0;
   const filtered = Boolean(owner || moduleId || phase || due);
@@ -182,7 +184,23 @@ export async function TasksView({
               </h2>
               <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
                 {g.items.map((t) => (
-                  <li key={t.id} className="flex flex-wrap items-start gap-3 px-3 py-2.5">
+                  <EditableTask
+                    key={t.id}
+                    moduleId={t.moduleId}
+                    taskId={t.id}
+                    subtask={!!t.parentId}
+                    owners={owners}
+                    initial={{
+                      title: t.title,
+                      phase: t.phase,
+                      owner: t.owner ?? "",
+                      status: t.status,
+                      startDate: t.start,
+                      dueDate: t.due,
+                      notes: t.notes ?? "",
+                    }}
+                    className="flex flex-wrap items-start gap-3 px-3 py-2.5"
+                  >
                     <TaskStatusSelect moduleId={t.moduleId} taskId={t.id} title={t.title} status={t.status} />
                     <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
                       <p className={`text-sm ${t.status === "completed" ? "text-zinc-400 line-through" : "font-medium"}`}>
@@ -211,7 +229,7 @@ export async function TasksView({
                     >
                       {t.due ? `Due ${formatDay(t.due, today)}` : t.start ? `Starts ${formatDay(t.start, today)}` : ""}
                     </span>
-                  </li>
+                  </EditableTask>
                 ))}
               </ul>
             </section>
