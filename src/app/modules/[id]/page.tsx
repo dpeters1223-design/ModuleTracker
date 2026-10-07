@@ -241,7 +241,10 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
       </section>
 
       <section id="assets" className="scroll-mt-4 space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Assets</h2>
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Assets</h2>
+          <p className="text-sm text-zinc-500">The images, videos and 3D objects this module needs. Tick each one when it&apos;s received.</p>
+        </div>
         <AssetList
           moduleId={mod.id}
           assets={assets}

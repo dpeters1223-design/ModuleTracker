@@ -1,15 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import type { AssetStatus } from "@prisma/client";
-import {
-  ASSET_STATUS_LABELS,
-  ASSET_STATUS_STYLES,
-  ASSET_STATUSES,
-  ASSET_TYPE_LABELS,
-  ASSET_TYPES,
-  isInHand,
-} from "@/lib/assets";
+import { ASSET_TYPE_LABELS, ASSET_TYPES, isInHand } from "@/lib/assets";
 import { AttachImagePanel, TaskImages, type TaskImage } from "@/components/task-images";
 import {
   addAssetsFromScenes,
@@ -33,8 +26,8 @@ const primaryBtn = `${btn} bg-brand text-white hover:bg-brand-hover dark:bg-gold
 const secondaryBtn = `${btn} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800`;
 const linkBtn = "text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100";
 
-/** One-click status pill: Needed → Requested → Received → In Uptale. */
-export function AssetStatusSelect({
+/** The checklist tick: expected ↔ received. Unticking also clears "In Uptale". */
+export function ReceivedCheckbox({
   moduleId,
   assetId,
   name,
@@ -46,25 +39,49 @@ export function AssetStatusSelect({
   status: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const [shown, setShown] = useOptimistic(status);
+  const received = isInHand(shown as AssetStatus);
   return (
-    <select
-      aria-label={`Status of asset ${name}`}
-      value={status}
+    <input
+      type="checkbox"
+      aria-label={`${name}: received`}
+      title={received ? "Received (untick if it hasn't arrived)" : "Tick when it's received"}
+      checked={received}
       disabled={pending}
       onChange={(e) => {
-        const next = e.target.value;
+        const next = e.target.checked ? "received" : "needed";
         startTransition(async () => {
+          setShown(next);
           await setAssetStatus(moduleId, assetId, next);
         });
       }}
-      className={`shrink-0 rounded-full border-0 py-0.5 pr-7 pl-2.5 text-xs font-medium ${ASSET_STATUS_STYLES[status as AssetStatus]}`}
-    >
-      {ASSET_STATUSES.map((s) => (
-        <option key={s} value={s}>
-          {ASSET_STATUS_LABELS[s]}
-        </option>
-      ))}
-    </select>
+      className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-green-700 disabled:cursor-wait"
+    />
+  );
+}
+
+/** The optional second tick, once an asset is received: built into Uptale. */
+function InUptaleCheckbox({ moduleId, assetId, name, status }: { moduleId: string; assetId: string; name: string; status: string }) {
+  const [pending, startTransition] = useTransition();
+  const [shown, setShown] = useOptimistic(status);
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-1">
+      <input
+        type="checkbox"
+        aria-label={`${name}: in Uptale`}
+        checked={shown === "in_uptale"}
+        disabled={pending}
+        onChange={(e) => {
+          const next = e.target.checked ? "in_uptale" : "received";
+          startTransition(async () => {
+            setShown(next);
+            await setAssetStatus(moduleId, assetId, next);
+          });
+        }}
+        className="h-3.5 w-3.5 cursor-pointer accent-green-700"
+      />
+      In Uptale
+    </label>
   );
 }
 
@@ -135,16 +152,6 @@ function AssetForm({
           </select>
         </label>
         <label className="space-y-1 text-xs text-zinc-500">
-          Status
-          <select className={inputCls} value={form.status} onChange={(e) => set("status", e.target.value)}>
-            {ASSET_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {ASSET_STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-xs text-zinc-500">
           Who&apos;s providing it
           <input className={inputCls} list="asset-owner-options" value={form.owner} onChange={(e) => set("owner", e.target.value)} />
         </label>
@@ -189,11 +196,20 @@ function AssetLine({
   const [pending, startTransition] = useTransition();
   return (
     <div className="flex flex-wrap items-start gap-3">
-      <AssetStatusSelect moduleId={moduleId} assetId={asset.id} name={asset.name} status={asset.status} />
+      <ReceivedCheckbox moduleId={moduleId} assetId={asset.id} name={asset.name} status={asset.status} />
       <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
         <p className={`text-sm ${asset.status === "in_uptale" ? "text-zinc-500" : "font-medium"}`}>{asset.name}</p>
         <p className="text-xs text-zinc-500">
           {[ASSET_TYPE_LABELS[asset.type as keyof typeof ASSET_TYPE_LABELS], asset.owner].filter(Boolean).join(" · ")}
+          {isInHand(asset.status as AssetStatus) && (
+            <>
+              {" · "}
+              <span className="font-medium text-green-800 dark:text-green-400">✓ Received</span>
+              {" · "}
+              <InUptaleCheckbox moduleId={moduleId} assetId={asset.id} name={asset.name} status={asset.status} />
+            </>
+          )}
+          {asset.status === "requested" && <span className="text-amber-700 dark:text-amber-400"> · Requested</span>}
           {asset.url && (
             <>
               {" · "}
@@ -332,7 +348,10 @@ export function AssetList({
           </h3>
           <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
             {g.items.map((asset) => (
-              <li key={asset.id} className="px-3 py-2.5">
+              <li
+                key={asset.id}
+                className={`px-3 py-2.5 ${isInHand(asset.status as AssetStatus) ? "bg-green-50/70 dark:bg-green-950/25" : ""}`}
+              >
                 {editingId === asset.id ? (
                   <AssetForm
                     initial={asset}

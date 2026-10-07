@@ -3,7 +3,7 @@ import type { Prisma, TaskPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { buildOwnerIndex, isOwnedBy, teamNames } from "@/lib/team";
 import { EditableTask } from "./editable-task";
-import { AssetStatusSelect } from "@/app/modules/[id]/asset-list";
+import { ReceivedCheckbox } from "@/app/modules/[id]/asset-list";
 import { ASSET_TYPE_LABELS } from "@/lib/assets";
 import { TASK_PHASE_LABELS } from "@/lib/labels";
 import { moduleTitle } from "@/lib/script-template";
@@ -183,7 +183,7 @@ export async function TasksView({
           <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
             {myAssets.map((a) => (
               <li key={a.id} className="flex flex-wrap items-start gap-3 px-3 py-2.5">
-                <AssetStatusSelect moduleId={a.moduleId} assetId={a.id} name={a.name} status={a.status} />
+                <ReceivedCheckbox moduleId={a.moduleId} assetId={a.id} name={a.name} status={a.status} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{a.name}</p>
                   <p className="text-xs text-zinc-500">
