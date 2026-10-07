@@ -39,6 +39,8 @@ try {
     moduleVersions: await prisma.moduleVersion.count(),
     changeOrders: await prisma.changeOrder.count(),
     activityLog: await prisma.activityLog.count(),
+    moduleAssets: await prisma.moduleAsset.count(),
+    taskAttachments: await prisma.taskAttachment.count(),
   };
   console.log(`Backup taken ${backup.exportedAt}`);
   console.log("                 now → after restore");
@@ -58,7 +60,7 @@ try {
       const userIds = new Set([...existing, ...missing.map((u) => u.id)]);
 
       await tx.changeOrder.deleteMany({});
-      await tx.module.deleteMany({}); // cascades scenes, tasks, links, versions
+      await tx.module.deleteMany({}); // cascades scenes, tasks, links, versions, assets, images
 
       await tx.module.createMany({ data: d.modules });
       await tx.scene.createMany({ data: d.scenes });
@@ -68,6 +70,13 @@ try {
         data: d.documentLinks.map((l) => ({ ...l, addedById: userIds.has(l.addedById) ? l.addedById : null })),
       });
       await tx.changeOrder.createMany({ data: d.changeOrders });
+      // Assets and task/asset images (backups made before they existed don't have them).
+      if (d.moduleAssets?.length) await tx.moduleAsset.createMany({ data: d.moduleAssets });
+      if (d.taskAttachments?.length) {
+        await tx.taskAttachment.createMany({
+          data: d.taskAttachments.map((a) => ({ ...a, addedById: userIds.has(a.addedById) ? a.addedById : null })),
+        });
+      }
       // Change history (backups made before it existed simply don't have one).
       if (d.activityLog) {
         await tx.activityLog.deleteMany({});
@@ -89,6 +98,8 @@ try {
         moduleVersions: await tx.moduleVersion.count(),
         changeOrders: await tx.changeOrder.count(),
         activityLog: await tx.activityLog.count(),
+        moduleAssets: await tx.moduleAsset.count(),
+        taskAttachments: await tx.taskAttachment.count(),
       };
       const mismatch = Object.entries(backup.counts).filter(([k, v]) => after[k] !== v);
       if (mismatch.length) throw new Error(`Restored counts don't match the backup: ${JSON.stringify(mismatch)}`);

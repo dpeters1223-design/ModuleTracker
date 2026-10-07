@@ -12,17 +12,23 @@ import {
   shareWithEditors,
 } from "@/lib/google-drive";
 
-// Task images live in one Drive folder in the Drive owner's account (DRIVE_OWNER_EMAIL),
-// shared with SHARE_SCRIPTS_WITH like the scripts. The app serves them through
-// /api/attachments/[id], so only signed-in people can see them.
+// Images attached to tasks and assets live in one Drive folder in the Drive owner's
+// account (DRIVE_OWNER_EMAIL), shared with SHARE_SCRIPTS_WITH like the scripts. The app
+// serves them through /api/attachments/[id], so only signed-in people can see them.
 const ATTACHMENTS_FOLDER = "ModuleTracker Attachments";
 
 export type AttachmentResult = { error?: string };
+/** What an image is attached to. */
+export type AttachTarget = { kind: "task" | "asset"; id: string };
 
-async function findTask(moduleId: string, taskId: string) {
-  const task = await prisma.task.findFirst({ where: { id: taskId, moduleId }, select: { id: true, title: true } });
-  if (!task) throw new DriveError("That task no longer exists.");
-  return task;
+/** The task or asset, checked to belong to this module; its title for the history. */
+async function findTarget(moduleId: string, target: AttachTarget) {
+  const row =
+    target.kind === "task"
+      ? await prisma.task.findFirst({ where: { id: target.id, moduleId }, select: { title: true } })
+      : await prisma.moduleAsset.findFirst({ where: { id: target.id, moduleId }, select: { name: true } });
+  if (!row) throw new DriveError(`That ${target.kind} no longer exists.`);
+  return "title" in row ? row.title : row.name;
 }
 
 /**
@@ -32,11 +38,11 @@ async function findTask(moduleId: string, taskId: string) {
  */
 export async function prepareAttachmentUpload(
   moduleId: string,
-  taskId: string
+  target: AttachTarget
 ): Promise<AttachmentResult & { accessToken?: string; folderId?: string }> {
   try {
     await requireUser();
-    await findTask(moduleId, taskId);
+    await findTarget(moduleId, target);
     const token = await getDriveOwnerToken();
     const folder = await findOrCreateRootFolder(token, ATTACHMENTS_FOLDER);
     if (folder.created) {
@@ -52,15 +58,15 @@ export async function prepareAttachmentUpload(
   }
 }
 
-/** Second half: check the uploaded file is an image and attach it to the task. */
+/** Second half: check the uploaded file is an image and attach it. */
 export async function registerAttachment(
   moduleId: string,
-  taskId: string,
+  target: AttachTarget,
   fileId: string
 ): Promise<AttachmentResult> {
   try {
     const user = await requireUser();
-    const task = await findTask(moduleId, taskId);
+    const title = await findTarget(moduleId, target);
     const meta = await getFileMeta(await getDriveOwnerToken(), fileId);
     if (!meta) return { error: "The uploaded image couldn't be found in Google Drive." };
     // SVGs can carry scripts, so they're refused along with anything that isn't an image.
@@ -68,11 +74,17 @@ export async function registerAttachment(
       return { error: "Only photos and screenshots (JPEG, PNG, GIF, WebP, HEIC) can be attached." };
     }
     const attachment = await prisma.taskAttachment.create({
-      data: { taskId, driveFileId: meta.id, name: meta.name.slice(0, 200), mimeType: meta.mimeType, addedById: user.id },
+      data: {
+        ...(target.kind === "task" ? { taskId: target.id } : { assetId: target.id }),
+        driveFileId: meta.id,
+        name: meta.name.slice(0, 200),
+        mimeType: meta.mimeType,
+        addedById: user.id,
+      },
     });
     await logActivity(user, {
       action: "attachment.add",
-      summary: `Attached an image to "${task.title}"`,
+      summary: `Attached an image to ${target.kind === "asset" ? "asset " : ""}"${title}"`,
       entityType: "taskAttachment",
       entityId: attachment.id,
       moduleId,
@@ -86,19 +98,19 @@ export async function registerAttachment(
   }
 }
 
-/** Removes an image from its task. The file stays in Drive, so Undo can restore it. */
+/** Removes an image. The file stays in Drive, so Undo can restore it. */
 export async function removeAttachment(moduleId: string, attachmentId: string): Promise<AttachmentResult> {
   const user = await requireUser();
   const attachment = await prisma.taskAttachment.findFirst({
-    where: { id: attachmentId, task: { moduleId } },
-    include: { task: { select: { title: true } } },
+    where: { id: attachmentId, OR: [{ task: { moduleId } }, { asset: { moduleId } }] },
+    include: { task: { select: { title: true } }, asset: { select: { name: true } } },
   });
   if (!attachment) return {};
-  const { task, ...row } = attachment;
+  const { task, asset, ...row } = attachment;
   await prisma.taskAttachment.delete({ where: { id: attachmentId } });
   await logActivity(user, {
     action: "attachment.remove",
-    summary: `Removed an image from "${task.title}"`,
+    summary: `Removed an image from ${asset ? `asset "${asset.name}"` : `"${task?.title}"`}`,
     entityType: "taskAttachment",
     entityId: attachmentId,
     moduleId,

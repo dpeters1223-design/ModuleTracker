@@ -21,7 +21,7 @@ const RETENTION_DAYS = 30;
 
 /** Everything needed to rebuild the app's data. Google tokens are deliberately left out. */
 export async function buildSnapshot() {
-  const [users, modules, scenes, tasks, documentLinks, moduleVersions, changeOrders, activityLog] = await Promise.all([
+  const [users, modules, scenes, tasks, documentLinks, moduleVersions, changeOrders, activityLog, moduleAssets, taskAttachments] = await Promise.all([
     prisma.user.findMany({ select: { id: true, email: true, name: true, image: true, createdAt: true } }),
     prisma.module.findMany(),
     prisma.scene.findMany(),
@@ -30,6 +30,8 @@ export async function buildSnapshot() {
     prisma.moduleVersion.findMany(),
     prisma.changeOrder.findMany(),
     prisma.activityLog.findMany(),
+    prisma.moduleAsset.findMany(),
+    prisma.taskAttachment.findMany(),
   ]);
   return {
     format: "moduletracker-backup",
@@ -43,8 +45,10 @@ export async function buildSnapshot() {
       moduleVersions: moduleVersions.length,
       changeOrders: changeOrders.length,
       activityLog: activityLog.length,
+      moduleAssets: moduleAssets.length,
+      taskAttachments: taskAttachments.length,
     },
-    data: { users, modules, scenes, tasks, documentLinks, moduleVersions, changeOrders, activityLog },
+    data: { users, modules, scenes, tasks, documentLinks, moduleVersions, changeOrders, activityLog, moduleAssets, taskAttachments },
   };
 }
 

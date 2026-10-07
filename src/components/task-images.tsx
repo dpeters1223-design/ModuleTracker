@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { prepareAttachmentUpload, registerAttachment, removeAttachment } from "@/app/modules/[id]/attachment-actions";
+import {
+  prepareAttachmentUpload,
+  registerAttachment,
+  removeAttachment,
+  type AttachTarget,
+} from "@/app/modules/[id]/attachment-actions";
 
 export type TaskImage = { id: string; name: string };
 
@@ -48,7 +53,7 @@ async function uploadToDrive(file: File, target: { accessToken: string; folderId
 }
 
 /** A task's image thumbnails; click one to open it full size, ✕ to remove it. */
-export function TaskImages({ moduleId, images }: { moduleId: string; images: TaskImage[] }) {
+export function TaskImages({ moduleId, images, size = "h-16 w-16" }: { moduleId: string; images: TaskImage[]; size?: string }) {
   const [pending, startTransition] = useTransition();
   if (!images.length) return null;
   return (
@@ -61,7 +66,7 @@ export function TaskImages({ moduleId, images }: { moduleId: string; images: Tas
               src={`/api/attachments/${img.id}`}
               alt={img.name}
               loading="lazy"
-              className="h-16 w-16 rounded-md border border-zinc-300 bg-zinc-100 object-cover dark:border-zinc-600 dark:bg-zinc-800"
+              className={`${size} rounded-md border border-zinc-300 bg-zinc-100 object-cover dark:border-zinc-600 dark:bg-zinc-800`}
             />
           </a>
           <button
@@ -70,7 +75,7 @@ export function TaskImages({ moduleId, images }: { moduleId: string; images: Tas
             title="Remove image"
             disabled={pending}
             onClick={() => {
-              if (!confirm("Remove this image from the task?")) return;
+              if (!confirm("Remove this image?")) return;
               startTransition(async () => {
                 await removeAttachment(moduleId, img.id);
               });
@@ -89,10 +94,13 @@ export function TaskImages({ moduleId, images }: { moduleId: string; images: Tas
 export function AttachImagePanel({
   moduleId,
   taskId,
+  target = { kind: "task", id: taskId! },
   onDone,
 }: {
   moduleId: string;
-  taskId: string;
+  /** Shorthand for target = { kind: "task", id: taskId }. */
+  taskId?: string;
+  target?: AttachTarget;
   onDone: () => void;
 }) {
   const [status, setStatus] = useState("");
@@ -112,13 +120,13 @@ export function AttachImagePanel({
     setBusy(true);
     setError("");
     try {
-      const target = await prepareAttachmentUpload(moduleId, taskId);
-      if (target.error || !target.accessToken) throw new Error(target.error ?? "Couldn't start the upload.");
+      const upload = await prepareAttachmentUpload(moduleId, target);
+      if (upload.error || !upload.accessToken) throw new Error(upload.error ?? "Couldn't start the upload.");
       for (const [i, original] of images.entries()) {
         setStatus(images.length > 1 ? `Uploading ${i + 1} of ${images.length}…` : "Uploading…");
         const file = await shrink(original);
-        const fileId = await uploadToDrive(file, { accessToken: target.accessToken, folderId: target.folderId });
-        const res = await registerAttachment(moduleId, taskId, fileId);
+        const fileId = await uploadToDrive(file, { accessToken: upload.accessToken, folderId: upload.folderId });
+        const res = await registerAttachment(moduleId, target, fileId);
         if (res.error) throw new Error(res.error);
       }
       onDone();

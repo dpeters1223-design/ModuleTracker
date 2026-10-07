@@ -3,6 +3,8 @@ import type { Prisma, TaskPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { buildOwnerIndex, isOwnedBy, teamNames } from "@/lib/team";
 import { EditableTask } from "./editable-task";
+import { AssetStatusSelect } from "@/app/modules/[id]/asset-list";
+import { ASSET_TYPE_LABELS } from "@/lib/assets";
 import { TASK_PHASE_LABELS } from "@/lib/labels";
 import { moduleTitle } from "@/lib/script-template";
 import { TaskStatusSelect } from "@/components/task-status";
@@ -61,7 +63,7 @@ export async function TasksView({
     ],
   };
 
-  const [allTasks, modules, ownerRows, users] = await Promise.all([
+  const [allTasks, modules, ownerRows, users, openAssets] = await Promise.all([
     prisma.task.findMany({
       where,
       include: { module: { select: { id: true, number: true, name: true } }, parent: { select: { title: true } } },
@@ -75,9 +77,18 @@ export async function TasksView({
       orderBy: { owner: "asc" },
     }),
     mine ? prisma.user.findMany({ select: { email: true, name: true } }) : [],
+    // My tasks also lists assets someone is waiting on from me (not yet received).
+    mine
+      ? prisma.moduleAsset.findMany({
+          where: { status: { in: ["needed", "requested"] }, owner: { not: null }, ...(moduleId ? { moduleId } : {}) },
+          include: { module: { select: { id: true, number: true, name: true } } },
+          orderBy: [{ moduleId: "asc" }, { order: "asc" }],
+        })
+      : [],
   ]);
   const ownerIndex = buildOwnerIndex(users);
   const tasks = mine ? allTasks.filter((t) => isOwnedBy(t.owner, mine, ownerIndex)) : allTasks;
+  const myAssets = mine ? openAssets.filter((a) => isOwnedBy(a.owner, mine, ownerIndex)) : [];
 
   const weekOut = addDays(today, 7);
   const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
@@ -163,6 +174,33 @@ export async function TasksView({
           </Link>
         )}
       </form>
+
+      {myAssets.length > 0 && (
+        <section className="mb-8 space-y-2">
+          <h2 className="text-sm font-semibold">
+            Assets waiting on you <span className="font-normal text-zinc-500">({myAssets.length})</span>
+          </h2>
+          <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
+            {myAssets.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-start gap-3 px-3 py-2.5">
+                <AssetStatusSelect moduleId={a.moduleId} assetId={a.id} name={a.name} status={a.status} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{a.name}</p>
+                  <p className="text-xs text-zinc-500">
+                    <Link
+                      href={`/modules/${a.module.id}#assets`}
+                      className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    >
+                      {moduleTitle(a.module)}
+                    </Link>
+                    {` · ${ASSET_TYPE_LABELS[a.type]} · ${a.owner}`}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {groups.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-600">

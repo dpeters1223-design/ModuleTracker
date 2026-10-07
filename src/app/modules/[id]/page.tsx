@@ -9,6 +9,8 @@ import { TaskList, type TaskRow } from "./task-list";
 import { ModuleTaskBoard } from "@/components/module-task-board";
 import { DocumentList, type DocumentRow } from "./document-list";
 import { VersionList, type VersionRow } from "./version-list";
+import { AssetList, type AssetRow } from "./asset-list";
+import { sceneAssetCandidates } from "@/lib/assets";
 import { ChangeOrderList } from "@/components/change-order-list";
 import { getChangeOrderRows, getModuleOptions } from "@/lib/change-orders";
 import { todayInZone } from "@/lib/dates";
@@ -43,7 +45,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
   const objectives = mod.learningObjectives?.split("\n").filter(Boolean) ?? [];
   const script = await getScript(mod.id);
 
-  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity] = await Promise.all([
+  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity, assetRecords] = await Promise.all([
     prisma.task.findMany({
       where: { moduleId: mod.id },
       include: { attachments: { select: { id: true, name: true }, orderBy: { addedAt: "asc" } } },
@@ -68,7 +70,28 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     getChangeOrderRows({ OR: [{ moduleId: mod.id }, { moduleId: null }] }),
     getModuleOptions(),
     getActivity({ moduleId: mod.id }, 10),
+    prisma.moduleAsset.findMany({
+      where: { moduleId: mod.id },
+      include: { attachments: { select: { id: true, name: true }, orderBy: { addedAt: "asc" } } },
+      orderBy: { order: "asc" },
+    }),
   ]);
+  const assets: AssetRow[] = assetRecords.map((a) => ({
+    id: a.id,
+    name: a.name,
+    type: a.type,
+    sceneId: a.sceneId ?? "",
+    owner: a.owner ?? "",
+    status: a.status,
+    url: a.url ?? "",
+    notes: a.notes ?? "",
+    images: a.attachments,
+  }));
+  const listedKeys = new Set(assetRecords.map((a) => a.sourceKey));
+  const assetsFromScenes = sceneAssetCandidates(mod.scenes).filter((c) => !listedKeys.has(c.sourceKey)).length;
+  const sceneOptions = [...mod.scenes]
+    .sort((a, b) => a.order - b.order)
+    .map((s) => ({ id: s.id, label: `Scene ${s.order}${s.title ? `: ${s.title}` : ""}` }));
   const versions: VersionRow[] = versionRecords.map((v) => ({
     id: v.id,
     version: v.version,
@@ -215,6 +238,17 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
             }))}
           />
         )}
+      </section>
+
+      <section id="assets" className="scroll-mt-4 space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Assets</h2>
+        <AssetList
+          moduleId={mod.id}
+          assets={assets}
+          scenes={sceneOptions}
+          owners={owners}
+          fromScenes={assetsFromScenes}
+        />
       </section>
 
       <Section title="Documents">

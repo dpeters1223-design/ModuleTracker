@@ -45,6 +45,23 @@ enum TaskPhase {
   deployment
 }
 
+/// What kind of media an asset is (matches the scene activity types).
+enum AssetType {
+  image2d
+  video2d
+  object3d
+  audio
+  other
+}
+
+/// Where an asset stands: asked for, on its way, in hand, built into Uptale.
+enum AssetStatus {
+  needed
+  requested
+  received
+  in_uptale
+}
+
 enum TaskStatus {
   not_started
   in_progress
@@ -111,6 +128,7 @@ model Module {
   tasks         Task[]
   changeOrders  ChangeOrder[]
   versions      ModuleVersion[]
+  assets        ModuleAsset[]
 
   @@map("modules")
 }
@@ -164,6 +182,7 @@ model Scene {
 
   module        Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   documentLinks DocumentLink[]
+  assets        ModuleAsset[]
 
   @@map("scenes")
 }
@@ -217,17 +236,21 @@ model Task {
 /// "ModuleTracker Attachments" folder; the app serves it to signed-in users.
 model TaskAttachment {
   id          String   @id @default(cuid())
-  taskId      String
+  /// Exactly one of taskId / assetId is set.
+  taskId      String?
+  assetId     String?
   driveFileId String
   name        String
   mimeType    String
   addedById   String?
   addedAt     DateTime @default(now())
 
-  task    Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  addedBy User? @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  task    Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  asset   ModuleAsset? @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  addedBy User?        @relation(fields: [addedById], references: [id], onDelete: SetNull)
 
   @@index([taskId])
+  @@index([assetId])
   @@map("task_attachments")
 }
 
@@ -278,4 +301,33 @@ model ActivityLog {
   @@index([createdAt])
   @@index([moduleId, createdAt])
   @@map("activity_log")
+}
+
+/**
+ * A media asset a module needs (a 2D image, 2D video, 3D object…), tracked from
+ * "needed" to "in Uptale". Rows made from a scene's activities carry a sourceKey so
+ * "Add from scenes" can tell which scene items are already listed.
+ */
+model ModuleAsset {
+  id        String      @id @default(cuid())
+  moduleId  String
+  sceneId   String?
+  name      String
+  type      AssetType   @default(other)
+  /// Who is providing or making it (free text, matched like task owners)
+  owner     String?
+  status    AssetStatus @default(needed)
+  url       String?
+  notes     String?
+  sourceKey String?
+  order     Int         @default(0)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  scene       Scene?           @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  attachments TaskAttachment[]
+
+  @@index([moduleId])
+  @@map("module_assets")
 }

@@ -13,7 +13,7 @@ import { appUrl, postToSlackLater, slackEscape } from "@/lib/slack";
 
 type Actor = { id: string; email: string };
 
-type EntityType = "task" | "taskAttachment" | "documentLink" | "moduleVersion" | "changeOrder" | "module";
+type EntityType = "task" | "taskAttachment" | "moduleAsset" | "documentLink" | "moduleVersion" | "changeOrder" | "module";
 
 export type LogInput = {
   action: string;
@@ -68,12 +68,13 @@ export async function logActivity(actor: Actor, input: LogInput) {
   }
 }
 
-type UndoKind = "create" | "delete" | "update" | "discovery" | "moduleDelete" | "none";
+type UndoKind = "create" | "delete" | "update" | "discovery" | "moduleDelete" | "bulkCreate" | "none";
 
 export function undoKind(action: string): UndoKind {
   if (action === "undo") return "none";
   if (action === "discovery.update") return "discovery";
   if (action === "module.delete") return "moduleDelete";
+  if (action === "assets.fromScenes") return "bulkCreate";
   const verb = action.split(".").pop()!;
   if (["create", "add", "start", "import", "link"].includes(verb)) return "create";
   if (["delete", "remove", "unlink"].includes(verb)) return "delete";
@@ -87,6 +88,7 @@ function model(tx: Prisma.TransactionClient, type: string) {
   const m = {
     task: tx.task,
     taskAttachment: tx.taskAttachment,
+    moduleAsset: tx.moduleAsset,
     documentLink: tx.documentLink,
     moduleVersion: tx.moduleVersion,
     changeOrder: tx.changeOrder,
@@ -127,13 +129,19 @@ export async function undoActivity(actor: Actor, id: string): Promise<{ error?: 
   try {
     await prisma.$transaction(async (tx) => {
       const m = model(tx, entry.entityType);
-      if (kind === "create") {
+      if (kind === "bulkCreate") {
+        // e.g. "Added 5 assets from the scenes": remove the rows it made.
+        await m.deleteMany({ where: { id: { in: (after?.ids as string[] | undefined) ?? [] } } });
+      } else if (kind === "create") {
         await m.deleteMany({ where: { id: after?.id ?? entry.entityId } });
       } else if (kind === "delete") {
         if (!before) throw new Error("No saved copy to restore.");
         if (entry.entityType === "documentLink") await recreateLinks(tx, [before]);
-        else if (entry.entityType === "task" && (Array.isArray(before.subtasks) || Array.isArray(before.attachments))) {
-          // A deleted task's copy carries its sub-tasks and images: restore the task, then them.
+        else if (
+          (entry.entityType === "task" || entry.entityType === "moduleAsset") &&
+          (Array.isArray(before.subtasks) || Array.isArray(before.attachments))
+        ) {
+          // A deleted task's or asset's copy carries its sub-tasks and images: restore it, then them.
           const { subtasks, attachments, ...task } = before;
           await m.create({ data: task });
           if ((subtasks as Row[] | undefined)?.length) await m.createMany({ data: subtasks });
@@ -169,10 +177,12 @@ export async function undoActivity(actor: Actor, id: string): Promise<{ error?: 
           versions: Row[];
           changeOrders: Row[];
           taskAttachments?: Row[];
+          assets?: Row[];
         };
         await tx.module.create({ data: t.module as never });
         if (t.scenes.length) await tx.scene.createMany({ data: t.scenes as never });
         if (t.tasks.length) await tx.task.createMany({ data: t.tasks as never });
+        if (t.assets?.length) await tx.moduleAsset.createMany({ data: t.assets as never });
         if (t.taskAttachments?.length) await tx.taskAttachment.createMany({ data: t.taskAttachments as never });
         if (t.versions.length) await tx.moduleVersion.createMany({ data: t.versions as never });
         if (t.changeOrders.length) await tx.changeOrder.createMany({ data: t.changeOrders as never });

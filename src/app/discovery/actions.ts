@@ -9,6 +9,7 @@ import { cleanDiscovery, type DiscoveryInput, type DiscoveryScene } from "@/lib/
 import { MODULE_STATUS_LABELS, STATUS_PHASE, TASK_PHASE_LABELS } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import { logActivity } from "@/lib/activity";
+import { fillAssetsFromScenes } from "@/lib/asset-fill";
 import { watchedPeople } from "@/lib/activity-feed";
 import { appUrl, postToSlackLater, slackEscape } from "@/lib/slack";
 
@@ -77,6 +78,8 @@ export async function submitDiscovery(input: DiscoveryInput): Promise<DiscoveryR
     },
     select: { id: true, number: true, name: true },
   });
+  // Start its asset checklist from what the scenes call for (2D images, videos, 3D objects…).
+  await fillAssetsFromScenes(mod.id);
 
   await logActivity(user, {
     action: "discovery.create",
@@ -222,7 +225,10 @@ export async function deleteModule(moduleId: string): Promise<DiscoveryResult> {
     include: { scenes: true, tasks: true, documentLinks: true, versions: true, changeOrders: true },
   });
   const { scenes, tasks, documentLinks, versions, changeOrders, ...moduleRow } = mod;
-  const taskAttachments = await prisma.taskAttachment.findMany({ where: { task: { moduleId } } });
+  const [assets, taskAttachments] = await Promise.all([
+    prisma.moduleAsset.findMany({ where: { moduleId } }),
+    prisma.taskAttachment.findMany({ where: { OR: [{ task: { moduleId } }, { asset: { moduleId } }] } }),
+  ]);
   await prisma.module.delete({ where: { id: moduleId } });
   await logActivity(user, {
     action: "module.delete",
@@ -231,7 +237,7 @@ export async function deleteModule(moduleId: string): Promise<DiscoveryResult> {
     entityId: moduleId,
     moduleId,
     moduleLabel: moduleTitle(moduleRow),
-    before: { module: moduleRow, scenes, tasks, documentLinks, versions, changeOrders, taskAttachments },
+    before: { module: moduleRow, scenes, tasks, documentLinks, versions, changeOrders, assets, taskAttachments },
   });
   changed();
   redirect("/modules?deleted=1");
