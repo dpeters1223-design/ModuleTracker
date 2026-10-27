@@ -4,6 +4,7 @@ import { changed } from "@/lib/changed";
 import { emailList, logActivity } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { isAllowedMime } from "@/lib/attachments";
 import {
   DriveError,
   findOrCreateRootFolder,
@@ -68,10 +69,11 @@ export async function registerAttachment(
     const user = await requireUser();
     const title = await findTarget(moduleId, target);
     const meta = await getFileMeta(await getDriveOwnerToken(), fileId);
-    if (!meta) return { error: "The uploaded image couldn't be found in Google Drive." };
-    // SVGs can carry scripts, so they're refused along with anything that isn't an image.
-    if (!meta.mimeType.startsWith("image/") || meta.mimeType.includes("svg")) {
-      return { error: "Only photos and screenshots (JPEG, PNG, GIF, WebP, HEIC) can be attached." };
+    if (!meta) return { error: "The uploaded file couldn't be found in Google Drive." };
+    // Checked again here, against what Drive says the file actually is: the browser's
+    // filter can be bypassed by calling this action directly.
+    if (!isAllowedMime(meta.mimeType)) {
+      return { error: `${meta.mimeType || "That kind of file"} can't be attached.` };
     }
     const attachment = await prisma.taskAttachment.create({
       data: {

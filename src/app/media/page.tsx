@@ -13,6 +13,7 @@ import {
   ASSET_TYPE_LABELS,
   ASSET_TYPES,
 } from "@/lib/assets";
+import { fileKind, isImageMime } from "@/lib/attachments";
 
 export const metadata: Metadata = { title: "Media · ModuleTracker" };
 
@@ -178,28 +179,50 @@ export default async function MediaPage(props: PageProps<"/media">) {
                           {a.notes}
                         </p>
                       )}
-                      {a.attachments.length > 0 && (
+                      {a.attachments.some((f) => isImageMime(f.mimeType)) && (
                         <ul className="mt-2 flex flex-wrap gap-2">
-                          {a.attachments.map((f) => (
-                            <li key={f.id}>
-                              <a
-                                href={`/api/attachments/${f.id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title={f.name}
-                                className="block overflow-hidden rounded border border-zinc-300 dark:border-zinc-700"
-                              >
-                                <Image
-                                  src={`/api/attachments/${f.id}`}
-                                  alt={f.name}
-                                  width={72}
-                                  height={72}
-                                  unoptimized
-                                  className="h-16 w-16 object-cover"
-                                />
-                              </a>
-                            </li>
-                          ))}
+                          {a.attachments
+                            .filter((f) => isImageMime(f.mimeType))
+                            .map((f) => (
+                              <li key={f.id}>
+                                <a
+                                  href={`/api/attachments/${f.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={f.name}
+                                  className="block overflow-hidden rounded border border-zinc-300 dark:border-zinc-700"
+                                >
+                                  <Image
+                                    src={`/api/attachments/${f.id}`}
+                                    alt={f.name}
+                                    width={72}
+                                    height={72}
+                                    unoptimized
+                                    className="h-16 w-16 object-cover"
+                                  />
+                                </a>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                      {a.attachments.some((f) => !isImageMime(f.mimeType)) && (
+                        <ul className="mt-2 space-y-1">
+                          {a.attachments
+                            .filter((f) => !isImageMime(f.mimeType))
+                            .map((f) => (
+                              <li key={f.id} className="flex items-center gap-2 text-xs">
+                                <span className="shrink-0 rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                  {fileKind(f.mimeType)}
+                                </span>
+                                <a
+                                  href={`/api/attachments/${f.id}`}
+                                  title={`${f.name} (downloads)`}
+                                  className="min-w-0 truncate underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-900 dark:hover:decoration-zinc-100"
+                                >
+                                  {f.name}
+                                </a>
+                              </li>
+                            ))}
                         </ul>
                       )}
                     </div>

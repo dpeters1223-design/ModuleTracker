@@ -240,7 +240,7 @@ function TaskLine({
           </button>
         )}
         <button type="button" className={linkBtn} onClick={() => setAttaching(true)}>
-          Attach image
+          Attach file
         </button>
         <button type="button" className={linkBtn} onClick={onEdit}>
           Edit

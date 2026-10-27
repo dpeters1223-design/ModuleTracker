@@ -53,7 +53,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     prisma.task.findMany({
       where: { moduleId: mod.id },
       include: {
-        attachments: { select: { id: true, name: true }, orderBy: { addedAt: "asc" } },
+        attachments: { select: { id: true, name: true, mimeType: true }, orderBy: { addedAt: "asc" } },
         feedback: {
           select: { id: true, authorId: true, authorName: true, body: true, createdAt: true },
           orderBy: { createdAt: "asc" },
@@ -82,7 +82,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     getActivity({ moduleId: mod.id }, 10),
     prisma.moduleAsset.findMany({
       where: { moduleId: mod.id },
-      include: { attachments: { select: { id: true, name: true }, orderBy: { addedAt: "asc" } } },
+      include: { attachments: { select: { id: true, name: true, mimeType: true }, orderBy: { addedAt: "asc" } } },
       orderBy: { order: "asc" },
     }),
   ]);

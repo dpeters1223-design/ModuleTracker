@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { isAllowedEmail } from "@/lib/allowlist";
 import { prisma } from "@/lib/prisma";
 import { fetchFileContent, getDriveOwnerToken } from "@/lib/google-drive";
+import { isImageMime } from "@/lib/attachments";
 
 // Serves a task image from the Drive owner's account to signed-in team members only
 // (the proxy already blocks everyone else; this re-checks). Images never change once
@@ -15,11 +16,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!attachment) return new Response("Not found", { status: 404 });
   try {
     const file = await fetchFileContent(await getDriveOwnerToken(), attachment.driveFileId);
+    // Images render in the page; everything else downloads. A PDF or video shown inline
+    // would be served from our own origin, and this route has no range support, so
+    // seeking in a video would not work anyway.
+    const disposition = isImageMime(attachment.mimeType) ? "inline" : "attachment";
     return new Response(file.body, {
       headers: {
         "Content-Type": attachment.mimeType,
         // Headers only allow plain ASCII; accents and emoji in the name become "_".
-        "Content-Disposition": `inline; filename="${attachment.name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"`,
+        "Content-Disposition": `${disposition}; filename="${attachment.name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"`,
         "Cache-Control": "private, max-age=86400",
         "X-Content-Type-Options": "nosniff",
         // Even if something other than a plain image slipped through, it can't run anything.
