@@ -79,6 +79,13 @@ enum ChangeOrderStatus {
   declined
 }
 
+/// "team": the one always-on channel, open to every allowlisted user with no
+/// membership row needed. "group": a DM or small group, gated by ChatChannelMember.
+enum ChatChannelKind {
+  team
+  group
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -94,8 +101,11 @@ model User {
   /// When this user last opened their notifications (the bell)
   lastSeenActivityAt   DateTime?
 
-  documentLinksAdded DocumentLink[]
-  attachmentsAdded   TaskAttachment[]
+  documentLinksAdded     DocumentLink[]
+  attachmentsAdded       TaskAttachment[]
+  chatChannelsCreated    ChatChannel[]
+  chatChannelMemberships ChatChannelMember[]
+  chatMessages           ChatMessage[]
 
   @@map("users")
 }
@@ -330,4 +340,56 @@ model ModuleAsset {
 
   @@index([moduleId])
   @@map("module_assets")
+}
+
+/// A chat channel: either the single always-on "team" channel (every allowlisted
+/// user can read/post, no membership row needed) or a user-created group/DM
+/// channel (membership in ChatChannelMember gates access).
+model ChatChannel {
+  id          String          @id @default(cuid())
+  kind        ChatChannelKind @default(group)
+  /// Null for the team channel and for a 2-person DM (the UI shows the other
+  /// member's name instead); set for a named 3+ person group.
+  name        String?
+  createdById String?
+  createdAt   DateTime        @default(now())
+
+  createdBy User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  members   ChatChannelMember[]
+  messages  ChatMessage[]
+
+  @@map("chat_channels")
+}
+
+/// Who belongs to a group channel, and where they last read it. For the team
+/// channel this only exists once a user has opened it (to store lastReadAt).
+model ChatChannelMember {
+  id         String    @id @default(cuid())
+  channelId  String
+  userId     String
+  /// Null = never opened this channel, so everything in it is unread.
+  lastReadAt DateTime?
+  joinedAt   DateTime  @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([userId])
+  @@map("chat_channel_members")
+}
+
+/// One chat message. Text only in v1 — no edit/delete, no attachments.
+model ChatMessage {
+  id        String   @id @default(cuid())
+  channelId String
+  authorId  String?
+  body      String
+  createdAt DateTime @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author  User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([channelId, createdAt])
+  @@map("chat_messages")
 }

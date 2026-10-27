@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { auth, signOut } from "@/auth";
 import { NavTabs } from "@/components/nav-tabs";
 import { notifyUsers, unreadNotifications } from "@/lib/activity-feed";
+import { listChannelsForUser, unreadChatCounts } from "@/lib/chat";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,6 +27,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const email = session?.user?.email?.toLowerCase();
   // Bell only for people set up to be notified (NOTIFY_USERS): count of new updates.
   const bell = email && notifyUsers().includes(email) ? await unreadNotifications(email) : null;
+  const chatUnread = session?.user?.id
+    ? (await unreadChatCounts(session.user.id, await listChannelsForUser(session.user.id))).total
+    : 0;
   const navLink =
     "text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100";
   return (
@@ -82,6 +86,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                     )}
                   </Link>
                 )}
+                <Link
+                  href="/chat"
+                  aria-label={chatUnread ? `${chatUnread} unread chat message${chatUnread === 1 ? "" : "s"}` : "Chat"}
+                  title={chatUnread ? `${chatUnread} unread` : "Chat"}
+                  className="relative text-zinc-500 hover:text-brand dark:hover:text-gold"
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <path d="M4 5h16v11H8l-4 4V5Z" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {chatUnread > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-4 rounded-full bg-lab-red px-1 text-center text-[10px] leading-4 font-semibold text-white">
+                      {chatUnread > 99 ? "99+" : chatUnread}
+                    </span>
+                  )}
+                </Link>
                 <Link
                   href="/discovery/new"
                   className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover dark:bg-gold dark:text-brand dark:hover:bg-gold-dark"
