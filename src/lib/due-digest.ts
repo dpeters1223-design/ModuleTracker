@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { emailList } from "@/lib/activity";
 import { addDays, hourInZone, noonUtc, todayInZone } from "@/lib/dates";
 import { moduleTitle } from "@/lib/script-template";
 import { appUrl, postToSlackNow, slackEscape } from "@/lib/slack";
@@ -9,6 +10,9 @@ import { formatDay } from "@/lib/task-format";
 // The morning roundup: one Slack post listing what is overdue, due today or due
 // tomorrow, split into a section per owner so each person can be @-mentioned.
 //
+//   DIGEST_PEOPLE     — whose tasks the roundup covers, as emails. Unset means
+//                       everyone, and then tasks whose Owner box matches nobody get
+//                       their own section so they can't quietly drop out.
 //   SLACK_USER_IDS    — "email:U0123ABCD,email:U0456WXYZ"; a person with no entry is
 //                       named in plain text instead of being pinged. Slack only
 //                       notifies on the raw <@U…> form, and member IDs can't be
@@ -118,13 +122,13 @@ export async function buildDueDigest(): Promise<DigestContent> {
     if (bucket) due.push({ task, bucket });
   }
 
-  const counts = {
-    overdue: due.filter((r) => r.bucket === "overdue").length,
-    today: due.filter((r) => r.bucket === "today").length,
-    tomorrow: due.filter((r) => r.bucket === "tomorrow").length,
-  };
+  const tally = (rows: Row[]) => ({
+    overdue: rows.filter((r) => r.bucket === "overdue").length,
+    today: rows.filter((r) => r.bucket === "today").length,
+    tomorrow: rows.filter((r) => r.bucket === "tomorrow").length,
+  });
   if (!due.length) {
-    return { nothingDue: "nothing overdue or due in the next day", text: "", blocks: [], ...counts, people: 0 };
+    return { nothingDue: "nothing overdue or due in the next day", text: "", blocks: [], ...tally([]), people: 0 };
   }
 
   // Owner boxes are free text, so a task can belong to several people or to nobody
@@ -137,6 +141,11 @@ export async function buildDueDigest(): Promise<DigestContent> {
     const email = u.email.toLowerCase();
     if (!roster.get(email)) roster.set(email, u.name ?? email);
   }
+
+  // While the roundup covers only some of the team, everyone else's tasks are
+  // somebody else's business — including the ones no owner matched.
+  const only = emailList(process.env.DIGEST_PEOPLE);
+  if (only.length) for (const email of [...roster.keys()]) if (!only.includes(email)) roster.delete(email);
 
   const byPerson = new Map<string, Row[]>();
   const unmatched: Row[] = [];
@@ -166,7 +175,19 @@ export async function buildDueDigest(): Promise<DigestContent> {
       return [heading, ...linesFor(rows)].join("\n");
     });
 
-  if (unmatched.length) sections.push(["*No owner matched*", ...linesFor(unmatched)].join("\n"));
+  const showUnmatched = unmatched.length > 0 && !only.length;
+  if (showUnmatched) sections.push(["*No owner matched*", ...linesFor(unmatched)].join("\n"));
+
+  // Count what the message actually lists, not what was due across the whole team.
+  // A task owned by two people is listed twice but is still one task.
+  const listed = [...new Map(
+    [...[...byPerson.values()].flat(), ...(showUnmatched ? unmatched : [])].map((r) => [r.task.id, r])
+  ).values()];
+  const counts = tally(listed);
+
+  if (!sections.length) {
+    return { nothingDue: "nothing due for the people in DIGEST_PEOPLE", text: "", blocks: [], ...counts, people: 0 };
+  }
 
   const headline =
     ":sunrise: *Morning roundup* — " +
