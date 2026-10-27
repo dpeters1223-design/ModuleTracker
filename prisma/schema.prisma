@@ -117,6 +117,7 @@ model User {
   chatProfile            ChatProfile?
   modulesSignedOff       Module[]              @relation("ModuleSignOff")
   playthroughFeedback    PlaythroughFeedback[]
+  mediaItemsAdded        MediaItem[]
 
   @@map("users")
 }
@@ -155,6 +156,7 @@ model Module {
   changeOrders  ChangeOrder[]
   versions      ModuleVersion[]
   assets        ModuleAsset[]
+  mediaItems    MediaItem[]
 
   @@map("modules")
 }
@@ -209,6 +211,7 @@ model Scene {
   module        Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   documentLinks DocumentLink[]
   assets        ModuleAsset[]
+  mediaItems    MediaItem[]
 
   @@map("scenes")
 }
@@ -306,6 +309,55 @@ model PlaythroughFeedback {
   @@map("playthrough_feedback")
 }
 
+/**
+ * A file in the media library: an actual image, video, document or audio file the team
+ * has, or a link to one held somewhere else.
+ *
+ * Deliberately NOT a ModuleAsset. An asset is something a module *needs* (tracked
+ * needed → received → in Uptale) and most assets never have a file; a media item is a
+ * file that exists, and may belong to no module at all. Where the two line up, a media
+ * item can point at its asset.
+ *
+ * Organised by `tags` rather than by hierarchy: a tag like "reference" or "wafer
+ * carrier" is what relates one image to another, so there is no image-to-image link.
+ */
+model MediaItem {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  /// Free text, chosen from what has been used before. Lowercased on save so
+  /// "Reference" and "reference" are the same tag.
+  tags        String[] @default([])
+
+  /// An uploaded file: the Drive file holding the bytes, served via /api/media/[id].
+  driveFileId String?
+  mimeType    String?
+  bytes       Int?
+  /// A smaller copy made at upload time, so a grid of thumbnails isn't a grid of
+  /// full-size photos. Only set for images.
+  thumbFileId String?
+  /// Set instead of driveFileId when the media lives somewhere else entirely.
+  url         String?
+
+  /// All optional: a media item can belong to nothing.
+  moduleId  String?
+  sceneId   String?
+  assetId   String?
+  addedById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  module  Module?      @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  scene   Scene?       @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  asset   ModuleAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  addedBy User?        @relation(fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@index([moduleId])
+  @@index([assetId])
+  @@index([tags], type: Gin)
+  @@map("media_items")
+}
+
 /// A requested change to a module that is already signed off or deployed.
 model ChangeOrder {
   id             String            @id @default(cuid())
@@ -379,6 +431,7 @@ model ModuleAsset {
   module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   scene       Scene?           @relation(fields: [sceneId], references: [id], onDelete: SetNull)
   attachments TaskAttachment[]
+  mediaItems  MediaItem[]
 
   @@index([moduleId])
   @@map("module_assets")

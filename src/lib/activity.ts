@@ -21,7 +21,8 @@ type EntityType =
   | "moduleVersion"
   | "changeOrder"
   | "module"
-  | "playthroughFeedback";
+  | "playthroughFeedback"
+  | "mediaItem";
 
 export type LogInput = {
   action: string;
@@ -102,6 +103,7 @@ function model(tx: Prisma.TransactionClient, type: string) {
     changeOrder: tx.changeOrder,
     module: tx.module,
     playthroughFeedback: tx.playthroughFeedback,
+    mediaItem: tx.mediaItem,
   }[type];
   if (!m) throw new Error(`Can't undo changes to ${type}.`);
   return m as unknown as {

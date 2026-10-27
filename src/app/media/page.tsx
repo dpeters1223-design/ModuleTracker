@@ -1,121 +1,134 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { connection } from "next/server";
-import type { AssetStatus, AssetType, Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { dayInZone, timeInZone } from "@/lib/dates";
+import { dayLabel } from "@/lib/activity-feed";
 import { moduleTitle } from "@/lib/script-template";
-import {
-  ASSET_STATUS_LABELS,
-  ASSET_STATUS_STYLES,
-  ASSET_STATUSES,
-  ASSET_TYPE_LABELS,
-  ASSET_TYPES,
-} from "@/lib/assets";
-import { fileKind, isImageMime } from "@/lib/attachments";
+import { MediaLibrary, type MediaRow, type ModuleOption } from "./media-library";
 
-export const metadata: Metadata = { title: "Media · ModuleTracker" };
+export const metadata: Metadata = { title: "Media library · ModuleTracker" };
 
 const selectCls =
   "rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-900";
 
-/** Every media item the team is tracking, across all modules rather than one at a time. */
+/**
+ * The media library: the files the team actually has, organised by tag rather than by
+ * module. Separate from Assets, which tracks what a module still needs — most assets
+ * never have a file, and plenty of files belong to no module at all.
+ */
 export default async function MediaPage(props: PageProps<"/media">) {
   await connection();
   await requireUser();
   const params = await props.searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const tag = one(params.tag).trim().toLowerCase();
   const moduleId = one(params.module);
-  const type = one(params.type);
-  const status = one(params.status);
   const q = one(params.q).trim();
 
-  const where: Prisma.ModuleAssetWhereInput = {
-    ...(moduleId ? { moduleId } : {}),
-    ...(ASSET_TYPES.includes(type as AssetType) ? { type: type as AssetType } : {}),
-    ...(ASSET_STATUSES.includes(status as AssetStatus) ? { status: status as AssetStatus } : {}),
+  const where: Prisma.MediaItemWhereInput = {
+    ...(tag ? { tags: { has: tag } } : {}),
+    ...(moduleId ? (moduleId === "none" ? { moduleId: null } : { moduleId }) : {}),
     ...(q
       ? {
           OR: [
             { name: { contains: q, mode: "insensitive" } },
-            { notes: { contains: q, mode: "insensitive" } },
-            { owner: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } },
           ],
         }
       : {}),
   };
 
-  const [assets, modules, total] = await Promise.all([
-    prisma.moduleAsset.findMany({
+  const [rows, modules, total, tagRows] = await Promise.all([
+    prisma.mediaItem.findMany({
       where,
-      orderBy: [{ moduleId: "asc" }, { order: "asc" }],
+      orderBy: { createdAt: "desc" },
       select: {
         id: true,
         name: true,
-        type: true,
-        status: true,
-        owner: true,
+        description: true,
+        tags: true,
+        mimeType: true,
         url: true,
-        notes: true,
-        module: { select: { id: true, number: true, name: true } },
-        scene: { select: { order: true, title: true } },
-        attachments: { select: { id: true, name: true, mimeType: true }, orderBy: { addedAt: "asc" } },
+        driveFileId: true,
+        createdAt: true,
+        moduleId: true,
+        sceneId: true,
+        assetId: true,
+        module: { select: { number: true, name: true } },
+        addedBy: { select: { name: true, email: true } },
       },
     }),
     prisma.module.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, number: true, name: true } }),
-    prisma.moduleAsset.count(),
+    prisma.mediaItem.count(),
+    // Scalar-list columns have no distinct query, so the tag list is flattened here.
+    // Fine at a few hundred rows; revisit if the library grows into the thousands.
+    prisma.mediaItem.findMany({ select: { tags: true } }),
   ]);
 
-  const filtered = Boolean(moduleId || type || status || q);
-  const files = assets.reduce((n, a) => n + a.attachments.length, 0);
-
-  // Grouped by module, in the module list's own order, so the library reads the way
-  // the rest of the app is organised.
-  const groups = modules
-    .map((m) => ({ module: m, items: assets.filter((a) => a.module.id === m.id) }))
-    .filter((g) => g.items.length);
+  const knownTags = [...new Set(tagRows.flatMap((r) => r.tags))].sort();
+  const items: MediaRow[] = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    tags: r.tags,
+    mimeType: r.mimeType,
+    url: r.url,
+    hasFile: Boolean(r.driveFileId),
+    addedBy: r.addedBy?.name ?? r.addedBy?.email ?? null,
+    when: `${dayLabel(dayInZone(r.createdAt))} at ${timeInZone(r.createdAt)}`,
+    moduleId: r.moduleId,
+    moduleLabel: r.module ? moduleTitle(r.module) : null,
+    sceneId: r.sceneId,
+    assetId: r.assetId,
+  }));
+  const moduleOptions: ModuleOption[] = modules.map((m) => ({ id: m.id, label: moduleTitle(m) }));
+  const filtered = Boolean(tag || moduleId || q);
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Media</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          {assets.length} item{assets.length === 1 ? "" : "s"}
-          {filtered && ` of ${total}`} · {files} file{files === 1 ? "" : "s"} uploaded
-        </p>
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Media library</h1>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            {items.length} item{items.length === 1 ? "" : "s"}
+            {filtered && ` of ${total}`}
+            {tag && ` tagged “${tag}”`}
+          </p>
+        </div>
+        <Link
+          href="/media/assets"
+          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          Assets across modules →
+        </Link>
       </div>
 
-      {/* Plain GET form: filters live in the URL, so a filtered view can be bookmarked or shared. */}
-      <form className="mb-6 flex flex-wrap items-center gap-3 text-sm" method="get">
+      {/* Plain GET form: filters live in the URL, so a filtered view can be shared. */}
+      <form className="mb-4 flex flex-wrap items-center gap-3 text-sm" method="get">
         <input
           name="q"
           defaultValue={q}
-          placeholder="Search names, owners, notes"
-          aria-label="Search media"
+          placeholder="Search names and descriptions"
+          aria-label="Search the library"
           className={`${selectCls} min-w-52`}
         />
-        <select name="module" defaultValue={moduleId} className={selectCls} aria-label="Module">
-          <option value="">All modules</option>
-          {modules.map((m) => (
-            <option key={m.id} value={m.id}>
-              {moduleTitle(m)}
-            </option>
-          ))}
-        </select>
-        <select name="type" defaultValue={type} className={selectCls} aria-label="Type">
-          <option value="">All types</option>
-          {ASSET_TYPES.map((t) => (
+        <select name="tag" defaultValue={tag} className={selectCls} aria-label="Tag">
+          <option value="">All tags</option>
+          {knownTags.map((t) => (
             <option key={t} value={t}>
-              {ASSET_TYPE_LABELS[t]}
+              {t}
             </option>
           ))}
         </select>
-        <select name="status" defaultValue={status} className={selectCls} aria-label="Status">
-          <option value="">Any status</option>
-          {ASSET_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {ASSET_STATUS_LABELS[s]}
+        <select name="module" defaultValue={moduleId} className={selectCls} aria-label="Module">
+          <option value="">Any module</option>
+          <option value="none">No module</option>
+          {moduleOptions.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
             </option>
           ))}
         </select>
@@ -132,124 +145,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
         )}
       </form>
 
-      {groups.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-600">
-          <p className="font-medium">{filtered ? "Nothing matches those filters" : "No media tracked yet"}</p>
-          <p className="mt-1 text-sm text-zinc-500">
-            {filtered
-              ? "Try a different module, type or status."
-              : "Media is listed per module, under Assets on the module's page."}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {groups.map(({ module: m, items }) => (
-            <section key={m.id} className="space-y-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-semibold tracking-tight">
-                  <Link href={`/modules/${m.id}`} className="hover:underline underline-offset-4">
-                    {moduleTitle(m)}
-                  </Link>
-                </h2>
-                <p className="text-xs text-zinc-500">
-                  {items.length} item{items.length === 1 ? "" : "s"}
-                </p>
-              </div>
-              <ul className="divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950">
-                {items.map((a) => (
-                  <li key={a.id} className="flex flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{a.name}</p>
-                      <p className="text-xs text-zinc-500">
-                        {[
-                          ASSET_TYPE_LABELS[a.type],
-                          a.owner,
-                          a.scene ? `Scene ${a.scene.order}${a.scene.title ? `: ${a.scene.title}` : ""}` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                      {a.notes && (
-                        // Some notes are whole paragraphs (a module description, say); the
-                        // full text is on the module's own page.
-                        <p
-                          title={a.notes}
-                          className="mt-1 line-clamp-2 text-xs whitespace-pre-wrap text-zinc-600 dark:text-zinc-400"
-                        >
-                          {a.notes}
-                        </p>
-                      )}
-                      {a.attachments.some((f) => isImageMime(f.mimeType)) && (
-                        <ul className="mt-2 flex flex-wrap gap-2">
-                          {a.attachments
-                            .filter((f) => isImageMime(f.mimeType))
-                            .map((f) => (
-                              <li key={f.id}>
-                                <a
-                                  href={`/api/attachments/${f.id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={f.name}
-                                  className="block overflow-hidden rounded border border-zinc-300 dark:border-zinc-700"
-                                >
-                                  <Image
-                                    src={`/api/attachments/${f.id}`}
-                                    alt={f.name}
-                                    width={72}
-                                    height={72}
-                                    unoptimized
-                                    className="h-16 w-16 object-cover"
-                                  />
-                                </a>
-                              </li>
-                            ))}
-                        </ul>
-                      )}
-                      {a.attachments.some((f) => !isImageMime(f.mimeType)) && (
-                        <ul className="mt-2 space-y-1">
-                          {a.attachments
-                            .filter((f) => !isImageMime(f.mimeType))
-                            .map((f) => (
-                              <li key={f.id} className="flex items-center gap-2 text-xs">
-                                <span className="shrink-0 rounded border border-zinc-300 bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                                  {fileKind(f.mimeType)}
-                                </span>
-                                <a
-                                  href={`/api/attachments/${f.id}`}
-                                  title={`${f.name} (downloads)`}
-                                  className="min-w-0 truncate underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-900 dark:hover:decoration-zinc-100"
-                                >
-                                  {f.name}
-                                </a>
-                              </li>
-                            ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      {a.url && (
-                        <a
-                          href={a.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-zinc-500 underline underline-offset-4 hover:text-zinc-900 dark:hover:text-zinc-100"
-                        >
-                          Link ↗
-                        </a>
-                      )}
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${ASSET_STATUS_STYLES[a.status]}`}
-                      >
-                        {ASSET_STATUS_LABELS[a.status]}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      )}
+      <MediaLibrary items={items} modules={moduleOptions} knownTags={knownTags} />
     </main>
   );
 }
