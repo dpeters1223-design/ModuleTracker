@@ -75,6 +75,47 @@ function taskLine({ task, bucket }: Row, today: string): string {
   return `${BULLET[bucket]} *${slackEscape(task.title)}*${parent} — ${when}${where}`;
 }
 
+/** How far back the roundup looks for new playthrough write-ups. */
+const FEEDBACK_WINDOW_HOURS = 24;
+
+/**
+ * Playthrough write-ups submitted since yesterday's roundup, as one Slack section
+ * that @-mentions everyone the roundup goes to — a write-up landing is news for all
+ * of them, not just whoever owns the task.
+ *
+ * The window is a rolling 24 hours rather than a stored watermark. Vercel Hobby fires
+ * a cron within the hour of its schedule, so a write-up submitted inside that drift
+ * can in principle be missed; the section links to the module, and the write-ups stay
+ * on the task, so nothing is lost if it is.
+ */
+async function feedbackSection(mentions: string[]): Promise<{ section: string | null; count: number }> {
+  const since = new Date(Date.now() - FEEDBACK_WINDOW_HOURS * 3_600_000);
+  const rows = await prisma.playthroughFeedback.findMany({
+    where: { createdAt: { gte: since } },
+    orderBy: { createdAt: "asc" },
+    select: {
+      authorName: true,
+      body: true,
+      task: { select: { title: true, module: { select: { id: true, number: true, name: true } } } },
+    },
+  });
+  if (!rows.length) return { section: null, count: 0 };
+
+  const lines = rows.map((f) => {
+    const where = `<${appUrl(`/modules/${f.task.module.id}`)}|${slackEscape(moduleTitle(f.task.module))}>`;
+    // Transcripts run to thousands of words; the roundup carries an opening line.
+    const flat = f.body.replace(/\s+/g, " ").trim();
+    const excerpt = flat.length > 180 ? `${flat.slice(0, 180)}…` : flat;
+    return (
+      `:memo: *${slackEscape(f.authorName ?? "Someone")}* wrote up *${slackEscape(f.task.title)}* · ${where}\n` +
+      `> ${slackEscape(excerpt)}`
+    );
+  });
+
+  const heading = `*New playthrough feedback*${mentions.length ? ` ${mentions.join(" ")}` : ""}`;
+  return { section: [heading, ...lines].join("\n"), count: rows.length };
+}
+
 export type DigestContent = {
   /** Set when there is nothing to send; text and blocks are then empty. */
   nothingDue?: string;
@@ -84,6 +125,7 @@ export type DigestContent = {
   today: number;
   tomorrow: number;
   people: number;
+  feedback: number;
 };
 
 /** Composes the roundup without sending it, so it can also be previewed. */
@@ -127,8 +169,20 @@ export async function buildDueDigest(): Promise<DigestContent> {
     today: rows.filter((r) => r.bucket === "today").length,
     tomorrow: rows.filter((r) => r.bucket === "tomorrow").length,
   });
-  if (!due.length) {
-    return { nothingDue: "nothing overdue or due in the next day", text: "", blocks: [], ...tally([]), people: 0 };
+
+  const ids = slackIds();
+  const only = emailList(process.env.DIGEST_PEOPLE);
+  const feedback = await feedbackSection(only.map((e) => ids.get(e)).filter((id): id is string => Boolean(id)));
+
+  if (!due.length && !feedback.section) {
+    return {
+      nothingDue: "nothing overdue, due in the next day, or newly written up",
+      text: "",
+      blocks: [],
+      ...tally([]),
+      people: 0,
+      feedback: 0,
+    };
   }
 
   // Owner boxes are free text, so a task can belong to several people or to nobody
@@ -144,7 +198,6 @@ export async function buildDueDigest(): Promise<DigestContent> {
 
   // While the roundup covers only some of the team, everyone else's tasks are
   // somebody else's business — including the ones no owner matched.
-  const only = emailList(process.env.DIGEST_PEOPLE);
   if (only.length) for (const email of [...roster.keys()]) if (!only.includes(email)) roster.delete(email);
 
   const byPerson = new Map<string, Row[]>();
@@ -161,7 +214,6 @@ export async function buildDueDigest(): Promise<DigestContent> {
     }
   }
 
-  const ids = slackIds();
   const order: Bucket[] = ["overdue", "today", "tomorrow"];
   const linesFor = (rows: Row[]) =>
     order.flatMap((bucket) => rows.filter((r) => r.bucket === bucket).map((r) => taskLine(r, today)));
@@ -177,6 +229,7 @@ export async function buildDueDigest(): Promise<DigestContent> {
 
   const showUnmatched = unmatched.length > 0 && !only.length;
   if (showUnmatched) sections.push(["*No owner matched*", ...linesFor(unmatched)].join("\n"));
+  if (feedback.section) sections.push(feedback.section);
 
   // Count what the message actually lists, not what was due across the whole team.
   // A task owned by two people is listed twice but is still one task.
@@ -186,7 +239,14 @@ export async function buildDueDigest(): Promise<DigestContent> {
   const counts = tally(listed);
 
   if (!sections.length) {
-    return { nothingDue: "nothing due for the people in DIGEST_PEOPLE", text: "", blocks: [], ...counts, people: 0 };
+    return {
+      nothingDue: "nothing due for the people in DIGEST_PEOPLE",
+      text: "",
+      blocks: [],
+      ...counts,
+      people: 0,
+      feedback: 0,
+    };
   }
 
   const headline =
@@ -195,6 +255,7 @@ export async function buildDueDigest(): Promise<DigestContent> {
       counts.overdue ? `${counts.overdue} overdue` : null,
       counts.today ? `${counts.today} due today` : null,
       counts.tomorrow ? `${counts.tomorrow} due tomorrow` : null,
+      feedback.count ? `${feedback.count} new write-up${feedback.count === 1 ? "" : "s"}` : null,
     ]
       .filter(Boolean)
       .join(" · ");
@@ -212,6 +273,7 @@ export async function buildDueDigest(): Promise<DigestContent> {
     ],
     ...counts,
     people: byPerson.size,
+    feedback: feedback.count,
   };
 }
 
@@ -238,6 +300,7 @@ export type DigestResult = {
   today: number;
   tomorrow: number;
   people: number;
+  feedback: number;
   error?: string;
 };
 
@@ -250,11 +313,19 @@ export async function sendDueDigest(): Promise<DigestResult> {
   // confirm it really is working hours here before pinging anyone.
   const hour = hourInZone();
   if (hour < 9 || hour >= 17) {
-    return { posted: false, skipped: `outside 9am-5pm (local hour ${hour})`, overdue: 0, today: 0, tomorrow: 0, people: 0 };
+    return {
+      posted: false,
+      skipped: `outside 9am-5pm (local hour ${hour})`,
+      overdue: 0,
+      today: 0,
+      tomorrow: 0,
+      people: 0,
+      feedback: 0,
+    };
   }
 
-  const { nothingDue, text, blocks, overdue, today, tomorrow, people } = await buildDueDigest();
-  const counts = { overdue, today, tomorrow, people };
+  const { nothingDue, text, blocks, overdue, today, tomorrow, people, feedback } = await buildDueDigest();
+  const counts = { overdue, today, tomorrow, people, feedback };
   if (nothingDue) return { posted: false, skipped: nothingDue, ...counts };
 
   const { posted, error } = await postToSlackNow({ text, blocks });
