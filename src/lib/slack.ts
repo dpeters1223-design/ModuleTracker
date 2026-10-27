@@ -11,6 +11,30 @@ export const appUrl = (path = "") =>
 /** Escapes text for Slack's mrkdwn (only &, < and > are special). */
 export const slackEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+/** A Slack webhook payload. `text` is the notification fallback when `blocks` are used. */
+export type SlackPayload = { text: string; blocks?: unknown[] };
+
+/**
+ * Posts and waits, reporting whether it landed. For scheduled jobs, whose HTTP
+ * response is the only place a failure can surface — postToSlackLater swallows
+ * errors, which would let a cron report success over a post that never arrived.
+ */
+export async function postToSlackNow(payload: SlackPayload): Promise<{ posted: boolean; error?: string }> {
+  const url = process.env.SLACK_WEBHOOK_URL?.trim();
+  if (!url) return { posted: false, error: "SLACK_WEBHOOK_URL is not set" };
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return { posted: false, error: `${res.status}: ${await res.text()}` };
+    return { posted: true };
+  } catch (e) {
+    return { posted: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /**
  * Posts a message after the response has gone out, so nobody waits on Slack.
  * Does nothing when SLACK_WEBHOOK_URL isn't set; failures are logged, never shown.

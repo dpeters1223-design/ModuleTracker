@@ -18,3 +18,20 @@ export function timeInZone(d: Date): string {
 export function dayInZone(d: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: appTimeZone() }).format(d);
 }
+
+/** The hour right now in the app's time zone, 0-23. en-GB gives "00"-"23" rather than "24". */
+export function hourInZone(): number {
+  return Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: appTimeZone(), hour: "2-digit", hour12: false }).format(new Date())
+  );
+}
+
+/** "2026-10-27" + 1 → "2026-10-28". Anchored at noon so no DST shift moves the day. */
+export function addDays(day: string, n: number): string {
+  return new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** The Date a calendar day is stored as: noon UTC, matching how due dates are written. */
+export function noonUtc(day: string): Date {
+  return new Date(`${day}T12:00:00Z`);
+}
