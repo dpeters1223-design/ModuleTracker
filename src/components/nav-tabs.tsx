@@ -10,6 +10,7 @@ const TABS = [
   { href: "/scripts", label: "Scripts" },
   { href: "/tasks", label: "Tasks" },
   { href: "/my-tasks", label: "My tasks" },
+  { href: "/media", label: "Media" },
   { href: "/chat", label: "Chat" },
 ];
 
