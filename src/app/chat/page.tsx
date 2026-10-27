@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { requireUser } from "@/lib/session";
+import { todayInZone } from "@/lib/dates";
 import { TEAM_CHANNEL_ID, listChannelsForUser, listMessagesForChannel, unreadChatCounts } from "@/lib/chat";
 import { ChatView } from "./chat-view";
 
@@ -17,6 +18,7 @@ export default async function ChatPage() {
   return (
     <ChatView
       currentUserEmail={user.email}
+      today={todayInZone()}
       initialChannels={channels}
       initialActiveChannelId={TEAM_CHANNEL_ID}
       initialMessages={messages}

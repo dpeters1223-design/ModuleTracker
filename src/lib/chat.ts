@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { isAllowedEmail } from "@/lib/allowlist";
+import { dayInZone, timeInZone } from "@/lib/dates";
 
 /** Fixed id so every request upserts the same row instead of racing to create it. */
 export const TEAM_CHANNEL_ID = "team-channel";
@@ -16,9 +17,28 @@ export type ChannelSummary = {
 export type MessageRow = {
   id: string;
   body: string;
+  /** Kept for the poll cursor; day/time are what the UI renders. */
+  createdAt: Date;
+  /** "YYYY-MM-DD" in the team's time zone, for grouping into days. */
+  day: string;
+  /** e.g. "2:14 PM". Formatted here because dates.ts is server-only, and because
+   *  formatting in the browser would disagree with the server's first render. */
+  time: string;
+  author: { id: string; name: string | null; email: string } | null;
+};
+
+type MessageRecord = {
+  id: string;
+  body: string;
   createdAt: Date;
   author: { id: string; name: string | null; email: string } | null;
 };
+
+export const toMessageRow = (m: MessageRecord): MessageRow => ({
+  ...m,
+  day: dayInZone(m.createdAt),
+  time: timeInZone(m.createdAt),
+});
 
 /** The always-on team channel, created on first use. */
 export async function getOrCreateTeamChannel() {
@@ -107,11 +127,12 @@ const messageSelect = {
 /** Cursor-filtered for polling ("newer than `after`"); the last 50 for an initial load. */
 export async function listMessagesForChannel(channelId: string, after?: Date): Promise<MessageRow[]> {
   if (after) {
-    return prisma.chatMessage.findMany({
+    const rows = await prisma.chatMessage.findMany({
       where: { channelId, createdAt: { gt: after } },
       orderBy: { createdAt: "asc" },
       select: messageSelect,
     });
+    return rows.map(toMessageRow);
   }
   const rows = await prisma.chatMessage.findMany({
     where: { channelId },
@@ -119,5 +140,5 @@ export async function listMessagesForChannel(channelId: string, after?: Date): P
     take: 50,
     select: messageSelect,
   });
-  return rows.reverse();
+  return rows.reverse().map(toMessageRow);
 }

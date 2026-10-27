@@ -9,6 +9,7 @@ import {
   listChannelsForUser,
   listMessagesForChannel,
   requireChannelAccess,
+  toMessageRow,
   unreadChatCounts,
 } from "@/lib/chat";
 
@@ -51,7 +52,7 @@ export async function sendMessage(channelId: string, body: string): Promise<Send
       author: { select: { id: true, name: true, email: true } },
     },
   });
-  return { message };
+  return { message: toMessageRow(message) };
 }
 
 export async function listMessages(channelId: string, after?: string): Promise<MessageRow[]> {
@@ -70,9 +71,10 @@ export async function markChannelRead(channelId: string): Promise<void> {
   });
 }
 
+/** Everyone you could start a channel with — yourself excluded, since you're always in it. */
 export async function listAllowedUsersForPicker(): Promise<{ id: string; email: string; name: string | null }[]> {
-  await requireUser();
-  return listAllowedUsers();
+  const user = await requireUser();
+  return (await listAllowedUsers()).filter((u) => u.id !== user.id);
 }
 
 export type PollResult = { messages: MessageRow[]; channels: ChannelSummary[]; unread: Record<string, number> };

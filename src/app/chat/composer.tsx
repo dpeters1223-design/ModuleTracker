@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import type { MessageRow } from "@/lib/chat";
 import { sendMessage } from "./chat-actions";
 
@@ -16,21 +16,29 @@ export function Composer({ channelId, onSent }: { channelId: string; onSent: (me
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const submit = () => {
     const text = body;
     if (!text.trim()) return;
     startTransition(async () => {
-      const res = await sendMessage(channelId, text);
-      if (res.errors?.length) return setError(res.errors[0]);
-      setError(null);
-      setBody("");
-      if (res.message) onSent(res.message);
+      try {
+        const res = await sendMessage(channelId, text);
+        if (res.errors?.length) return setError(res.errors[0]);
+        setError(null);
+        setBody("");
+        if (res.message) onSent(res.message);
+        // Clearing the box disables the Send button, which would otherwise drop
+        // focus to the page body after a click-to-send.
+        inputRef.current?.focus();
+      } catch {
+        setError("That didn't send — reload the page and try again.");
+      }
     });
   };
 
   return (
-    <div className="border-t border-zinc-300 p-3 dark:border-zinc-700">
+    <div className="border-t border-zinc-300 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 dark:border-zinc-700">
       {error && (
         <p role="alert" className="mb-2 text-sm text-red-700 dark:text-red-400">
           {error}
@@ -44,6 +52,7 @@ export function Composer({ channelId, onSent }: { channelId: string; onSent: (me
         }}
       >
         <textarea
+          ref={inputRef}
           aria-label="Message"
           rows={1}
           className={`${inputCls} flex-1 resize-none`}

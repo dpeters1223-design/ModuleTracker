@@ -38,25 +38,31 @@ export function ChannelSidebar({
   };
 
   return (
-    <div className="flex w-56 shrink-0 flex-col gap-3">
-      <ul className="space-y-1">
+    // Phones get a horizontal row of channel pills above the thread; from lg it is a
+    // proper sidebar. The app has no hide-a-pane pattern, so nothing is hidden.
+    <nav aria-label="Channels" className="flex w-full shrink-0 flex-col gap-3 lg:w-60">
+      <ul className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] lg:block lg:space-y-1 lg:overflow-visible lg:pb-0">
         {channels.map((c) => {
           const count = unread[c.id] ?? 0;
           const active = c.id === activeId;
           return (
-            <li key={c.id}>
+            <li key={c.id} className="shrink-0 lg:shrink">
               <button
                 type="button"
                 onClick={() => onSelect(c.id)}
-                className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm ${
+                aria-current={active ? "true" : undefined}
+                className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm whitespace-nowrap transition lg:whitespace-normal ${
                   active
-                    ? "bg-brand text-white dark:bg-gold dark:text-brand"
+                    ? "bg-zinc-100 font-semibold text-brand lg:border-l-2 lg:border-brand dark:bg-zinc-800 dark:text-gold dark:lg:border-gold"
                     : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 }`}
               >
                 <span className="min-w-0 truncate">{c.label}</span>
                 {count > 0 && !active && (
-                  <span className="shrink-0 rounded-full bg-lab-red px-1.5 text-xs font-semibold text-white">
+                  <span
+                    aria-label={`${count} unread`}
+                    className="shrink-0 rounded-full bg-lab-red px-1.5 text-xs font-semibold text-white"
+                  >
                     {count > 99 ? "99+" : count}
                   </span>
                 )}
@@ -67,7 +73,7 @@ export function ChannelSidebar({
       </ul>
 
       {!adding && (
-        <button type="button" className={secondaryBtn} onClick={startAdding}>
+        <button type="button" className={`${secondaryBtn} self-start lg:self-stretch`} onClick={startAdding}>
           + New channel
         </button>
       )}
@@ -95,24 +101,33 @@ export function ChannelSidebar({
               ))}
             </ul>
           )}
-          {people === null ? (
-            <p className="text-xs text-zinc-500">Loading people…</p>
-          ) : (
-            <div className="max-h-40 space-y-1 overflow-y-auto">
-              {people.map((p) => (
-                <label key={p.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(p.id)}
-                    onChange={(e) =>
-                      setSelected((s) => (e.target.checked ? [...s, p.id] : s.filter((id) => id !== p.id)))
-                    }
-                  />
-                  {p.name ?? p.email}
-                </label>
-              ))}
-            </div>
-          )}
+          <fieldset className="space-y-1">
+            <legend className="mb-1 text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+              Who can see it
+            </legend>
+            {people === null ? (
+              <p className="text-xs text-zinc-500" role="status">
+                Loading people…
+              </p>
+            ) : people.length === 0 ? (
+              <p className="text-xs text-zinc-500">Nobody else has signed in yet.</p>
+            ) : (
+              <div className="max-h-40 space-y-1 overflow-y-auto">
+                {people.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(p.id)}
+                      onChange={(e) =>
+                        setSelected((s) => (e.target.checked ? [...s, p.id] : s.filter((id) => id !== p.id)))
+                      }
+                    />
+                    {p.name ?? p.email}
+                  </label>
+                ))}
+              </div>
+            )}
+          </fieldset>
           {selected.length > 1 && (
             <input
               aria-label="Channel name (optional)"
@@ -140,6 +155,6 @@ export function ChannelSidebar({
           </div>
         </form>
       )}
-    </div>
+    </nav>
   );
 }
