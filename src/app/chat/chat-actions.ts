@@ -4,10 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import {
   type ChannelSummary,
+  type ChatProfileSettings,
   type MessageRow,
+  type NotifyLevel,
+  getChatProfile,
   listAllowedUsers,
   listChannelsForUser,
   listMessagesForChannel,
+  messageSelect,
   requireChannelAccess,
   toMessageRow,
   unreadChatCounts,
@@ -45,12 +49,7 @@ export async function sendMessage(channelId: string, body: string): Promise<Send
 
   const message = await prisma.chatMessage.create({
     data: { channelId, authorId: user.id, body: trimmed },
-    select: {
-      id: true,
-      body: true,
-      createdAt: true,
-      author: { select: { id: true, name: true, email: true } },
-    },
+    select: messageSelect,
   });
   return { message: toMessageRow(message) };
 }
@@ -75,6 +74,49 @@ export async function markChannelRead(channelId: string): Promise<void> {
 export async function listAllowedUsersForPicker(): Promise<{ id: string; email: string; name: string | null }[]> {
   const user = await requireUser();
   return (await listAllowedUsers()).filter((u) => u.id !== user.id);
+}
+
+export async function loadChatProfile(): Promise<ChatProfileSettings> {
+  const user = await requireUser();
+  return getChatProfile(user.id);
+}
+
+export type SaveProfileResult = { errors?: string[]; profile?: ChatProfileSettings };
+
+/** Saves someone's own chat settings. The row is created on first save. */
+export async function saveChatProfile(input: {
+  nickname: string;
+  emoji: string | null;
+  useGooglePhoto: boolean;
+  notifyLevel: NotifyLevel;
+}): Promise<SaveProfileResult> {
+  const user = await requireUser();
+  const nickname = input.nickname.trim().slice(0, 40);
+  // One emoji, not a sentence. Intl.Segmenter counts what a reader calls a character,
+  // so multi-codepoint emoji (skin tones, flags) count as one.
+  const emoji = input.emoji?.trim() || null;
+  if (emoji && [...new Intl.Segmenter().segment(emoji)].length > 1) {
+    return { errors: ["Pick a single emoji."] };
+  }
+  const data = { nickname: nickname || null, emoji, useGooglePhoto: input.useGooglePhoto, notifyLevel: input.notifyLevel };
+  await prisma.chatProfile.upsert({
+    where: { userId: user.id },
+    create: { userId: user.id, ...data },
+    update: data,
+  });
+  return { profile: await getChatProfile(user.id) };
+}
+
+/** Mutes or un-mutes one channel. null means "follow my default". */
+export async function setChannelNotifyLevel(channelId: string, level: NotifyLevel | null): Promise<void> {
+  const user = await requireUser();
+  await requireChannelAccess(channelId, user.id);
+  // The team channel has no membership row until someone opens it, so this upserts.
+  await prisma.chatChannelMember.upsert({
+    where: { channelId_userId: { channelId, userId: user.id } },
+    create: { channelId, userId: user.id, notifyLevel: level },
+    update: { notifyLevel: level },
+  });
 }
 
 export type PollResult = { messages: MessageRow[]; channels: ChannelSummary[]; unread: Record<string, number> };

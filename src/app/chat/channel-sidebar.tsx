@@ -18,12 +18,16 @@ export function ChannelSidebar({
   unread,
   onSelect,
   onCreated,
+  settingsOpen,
+  onOpenSettings,
 }: {
   channels: ChannelSummary[];
   activeId: string;
   unread: Record<string, number>;
   onSelect: (id: string) => void;
   onCreated: (id: string) => void;
+  settingsOpen: boolean;
+  onOpenSettings: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [people, setPeople] = useState<{ id: string; email: string; name: string | null }[] | null>(null);
@@ -57,7 +61,10 @@ export function ChannelSidebar({
                     : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 }`}
               >
-                <span className="min-w-0 truncate">{c.label}</span>
+                <span className="min-w-0 truncate">
+                  {c.label}
+                  {c.notify !== "all" && <span className="ml-1.5 text-xs font-normal text-zinc-400">muted</span>}
+                </span>
                 {count > 0 && !active && (
                   <span
                     aria-label={`${count} unread`}
@@ -73,9 +80,19 @@ export function ChannelSidebar({
       </ul>
 
       {!adding && (
-        <button type="button" className={`${secondaryBtn} self-start lg:self-stretch`} onClick={startAdding}>
-          + New channel
-        </button>
+        <div className="flex gap-2">
+          <button type="button" className={`${secondaryBtn} lg:flex-1`} onClick={startAdding}>
+            + New channel
+          </button>
+          <button
+            type="button"
+            aria-current={settingsOpen ? "true" : undefined}
+            className={`${secondaryBtn} ${settingsOpen ? "bg-zinc-100 font-semibold text-brand dark:bg-zinc-800 dark:text-gold" : ""}`}
+            onClick={onOpenSettings}
+          >
+            Settings
+          </button>
+        </div>
       )}
 
       {adding && (

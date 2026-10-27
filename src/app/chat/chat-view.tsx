@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ChannelSummary, MessageRow } from "@/lib/chat";
-import { markChannelRead, pollChat } from "./chat-actions";
+import type { ChannelSummary, MessageRow, NotifyLevel } from "@/lib/chat";
+import { markChannelRead, pollChat, setChannelNotifyLevel } from "./chat-actions";
 import { ChannelSidebar } from "./channel-sidebar";
+import { ChatSettings } from "./chat-settings";
 import { MessageList } from "./message-list";
 import { Composer } from "./composer";
 
@@ -29,12 +30,14 @@ export function ChatView({
   const [messages, setMessages] = useState(initialMessages);
   const [unread, setUnread] = useState(initialUnread);
   const [offline, setOffline] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const cursorRef = useRef<string | null>(
     initialMessages.length ? new Date(initialMessages[initialMessages.length - 1].createdAt).toISOString() : null
   );
 
   /** Switches the active channel (or refreshes it, e.g. right after creating one). */
   async function loadChannel(id: string) {
+    setShowSettings(false);
     setActiveId(id);
     const res = await pollChat(id, null);
     setMessages(res.messages);
@@ -90,31 +93,61 @@ export function ChatView({
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-6 sm:px-6 lg:min-h-0 lg:flex-row">
       <ChannelSidebar
         channels={channels}
-        activeId={activeId}
+        activeId={showSettings ? "" : activeId}
         unread={unread}
         onSelect={loadChannel}
         onCreated={loadChannel}
+        settingsOpen={showSettings}
+        onOpenSettings={() => setShowSettings(true)}
       />
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950">
-        <header className="flex items-baseline justify-between gap-3 border-b border-zinc-300 px-4 py-3 sm:px-6 dark:border-zinc-700">
-          <h1 className="truncate font-semibold tracking-tight">{active?.label ?? "Chat"}</h1>
-          <p className="shrink-0 text-xs text-zinc-500">
-            {active?.kind === "team" ? "Everyone on the team" : "Private"}
-          </p>
+        <header className="flex items-center justify-between gap-3 border-b border-zinc-300 px-4 py-3 sm:px-6 dark:border-zinc-700">
+          <h1 className="truncate font-semibold tracking-tight">
+            {showSettings ? "Chat settings" : (active?.label ?? "Chat")}
+          </h1>
+          {!showSettings && active && (
+            <label className="flex shrink-0 items-center gap-2 text-xs text-zinc-500">
+              <span className="hidden sm:inline">Notify me about</span>
+              <select
+                aria-label="Notifications for this channel"
+                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+                value={active.notifyOverride ?? "default"}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const level = value === "default" ? null : (value as NotifyLevel);
+                  setChannels((cs) =>
+                    cs.map((c) => (c.id === active.id ? { ...c, notifyOverride: level, notify: level ?? c.notify } : c))
+                  );
+                  setChannelNotifyLevel(active.id, level).catch(() => {});
+                }}
+              >
+                <option value="default">My default</option>
+                <option value="all">All messages</option>
+                <option value="mentions">Mentions only</option>
+                <option value="none">Nothing</option>
+              </select>
+            </label>
+          )}
         </header>
-        {offline && (
+        {offline && !showSettings && (
           <p role="alert" className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:px-6 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
             Reconnecting — new messages may be delayed.
           </p>
         )}
-        <MessageList messages={messages} currentUserEmail={currentUserEmail} today={today} />
-        <Composer
-          channelId={activeId}
-          onSent={(message) => {
-            setMessages((m) => [...m, message]);
-            cursorRef.current = new Date(message.createdAt).toISOString();
-          }}
-        />
+        {showSettings ? (
+          <ChatSettings onSaved={() => loadChannel(activeId)} />
+        ) : (
+          <>
+            <MessageList messages={messages} currentUserEmail={currentUserEmail} today={today} />
+            <Composer
+              channelId={activeId}
+              onSent={(message) => {
+                setMessages((m) => [...m, message]);
+                cursorRef.current = new Date(message.createdAt).toISOString();
+              }}
+            />
+          </>
+        )}
       </section>
     </main>
   );

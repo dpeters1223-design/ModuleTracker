@@ -86,6 +86,14 @@ enum ChatChannelKind {
   group
 }
 
+/// How much a channel should count towards someone's unread badge.
+/// "mentions" behaves like "none" until @-mentions are built.
+enum ChatNotifyLevel {
+  all
+  mentions
+  none
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -106,6 +114,7 @@ model User {
   chatChannelsCreated    ChatChannel[]
   chatChannelMemberships ChatChannelMember[]
   chatMessages           ChatMessage[]
+  chatProfile            ChatProfile?
 
   @@map("users")
 }
@@ -369,6 +378,8 @@ model ChatChannelMember {
   userId     String
   /// Null = never opened this channel, so everything in it is unread.
   lastReadAt DateTime?
+  /// Null = use the person's ChatProfile default. Set to mute just this channel.
+  notifyLevel ChatNotifyLevel?
   joinedAt   DateTime  @default(now())
 
   channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
@@ -377,6 +388,29 @@ model ChatChannelMember {
   @@unique([channelId, userId])
   @@index([userId])
   @@map("chat_channel_members")
+}
+
+/**
+ * Per-person chat settings. Separate from User because User.name and User.image are
+ * overwritten from Google on every sign-in (src/auth.ts), so a chosen nickname or
+ * avatar could not survive there.
+ */
+model ChatProfile {
+  id             String          @id @default(cuid())
+  userId         String          @unique
+  /// Shown instead of the Google account name. Null = use User.name.
+  nickname       String?
+  /// An emoji used as this person's avatar; wins over their Google photo.
+  emoji          String?
+  /// false = never show my Google profile photo in chat.
+  useGooglePhoto Boolean         @default(true)
+  /// Default for channels with no ChatChannelMember.notifyLevel of their own.
+  notifyLevel    ChatNotifyLevel @default(all)
+  updatedAt      DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_profiles")
 }
 
 /// One chat message. Text only in v1 — no edit/delete, no attachments.

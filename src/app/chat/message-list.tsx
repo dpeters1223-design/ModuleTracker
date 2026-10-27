@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef } from "react";
 import type { MessageRow } from "@/lib/chat";
 
@@ -17,16 +18,16 @@ function dayLabel(day: string, today: string): string {
   });
 }
 
-const displayName = (author: MessageRow["author"]) => author?.name ?? author?.email ?? "Someone";
+const displayName = (author: MessageRow["author"]) => author?.name ?? "Someone";
 
 /** Up to two initials: "Jay Williamson" → JW, "mlh355@cornell.edu" → M. */
 function initials(author: MessageRow["author"]): string {
   const name = author?.name?.trim();
-  if (name) {
+  if (name && !name.includes("@")) {
     const parts = name.split(/\s+/);
     return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
   }
-  return (author?.email?.[0] ?? "?").toUpperCase();
+  return (name?.[0] ?? "?").toUpperCase();
 }
 
 // A stable tint per person so the same face-less avatar reads as the same person
@@ -42,7 +43,30 @@ const TINTS = [
 const tintFor = (key: string) =>
   TINTS[[...key].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % TINTS.length];
 
+/** Their chosen emoji, else their Google photo, else initials on a stable tint. */
 function Avatar({ author }: { author: MessageRow["author"] }) {
+  if (author?.emoji) {
+    return (
+      <div
+        aria-hidden
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-base dark:bg-zinc-800"
+      >
+        {author.emoji}
+      </div>
+    );
+  }
+  if (author?.image) {
+    return (
+      <Image
+        src={author.image}
+        alt=""
+        width={32}
+        height={32}
+        unoptimized
+        className="h-8 w-8 shrink-0 rounded-full object-cover"
+      />
+    );
+  }
   return (
     <div
       aria-hidden
