@@ -7,8 +7,14 @@ import { PhaseDot } from "@/components/phase-dot";
 import { AttachImagePanel, TaskImages, type TaskImage } from "@/components/task-images";
 import { formatDay as fmt, TASK_STATUSES as STATUSES } from "@/lib/task-format";
 import { createTask, deleteTask, updateTask, type TaskInput, type TaskResult } from "./task-actions";
+import { PlaythroughFeedback, type FeedbackRow } from "./playthrough-feedback";
 
-export type TaskRow = TaskInput & { id: string; parentId: string | null; images: TaskImage[] };
+export type TaskRow = TaskInput & {
+  id: string;
+  parentId: string | null;
+  images: TaskImage[];
+  feedback: FeedbackRow[];
+};
 
 const PHASES = Object.keys(TASK_PHASE_LABELS) as (keyof typeof TASK_PHASE_LABELS)[];
 
@@ -45,7 +51,7 @@ export function TaskForm({
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
-  const set = (k: keyof TaskInput, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof TaskInput>(k: K, v: TaskInput[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
     <form
@@ -129,6 +135,20 @@ export function TaskForm({
         value={form.notes}
         onChange={(e) => set("notes", e.target.value)}
       />
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={form.isPlaythrough}
+          onChange={(e) => set("isPlaythrough", e.target.checked)}
+        />
+        <span>
+          Is this task a playthrough?
+          <span className="block text-xs text-zinc-500">
+            Whoever owns it gets a feedback tab to write up what happened when they played the module.
+          </span>
+        </span>
+      </label>
       <datalist id="task-owner-options">
         {owners.map((o) => (
           <option key={o} value={o} />
@@ -204,6 +224,14 @@ function TaskLine({
         )}
         <TaskImages moduleId={moduleId} images={task.images} />
         {attaching && <AttachImagePanel moduleId={moduleId} taskId={task.id} onDone={() => setAttaching(false)} />}
+        {task.isPlaythrough && (
+          <PlaythroughFeedback
+            moduleId={moduleId}
+            taskId={task.id}
+            taskTitle={task.title}
+            entries={task.feedback}
+          />
+        )}
       </div>
       <div className="ml-auto flex gap-3 sm:ml-0">
         {onAddSubtask && (
@@ -281,6 +309,7 @@ export function TaskList({
     startDate: "",
     dueDate: "",
     notes: "",
+    isPlaythrough: false,
   };
   // Only one form open at a time: adding a task, editing one, or adding a sub-task.
   const openOnly = (which: "add" | "edit" | "sub", id: string | null = null) => {

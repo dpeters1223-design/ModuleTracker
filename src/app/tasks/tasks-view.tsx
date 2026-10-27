@@ -236,6 +236,7 @@ export async function TasksView({
                       startDate: t.start,
                       dueDate: t.due,
                       notes: t.notes ?? "",
+                      isPlaythrough: t.isPlaythrough,
                     }}
                     className="flex flex-wrap items-start gap-3 px-3 py-2.5"
                   >

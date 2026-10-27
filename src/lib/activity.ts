@@ -13,7 +13,15 @@ import { appUrl, postToSlackLater, slackEscape } from "@/lib/slack";
 
 type Actor = { id: string; email: string };
 
-type EntityType = "task" | "taskAttachment" | "moduleAsset" | "documentLink" | "moduleVersion" | "changeOrder" | "module";
+type EntityType =
+  | "task"
+  | "taskAttachment"
+  | "moduleAsset"
+  | "documentLink"
+  | "moduleVersion"
+  | "changeOrder"
+  | "module"
+  | "playthroughFeedback";
 
 export type LogInput = {
   action: string;
@@ -93,6 +101,7 @@ function model(tx: Prisma.TransactionClient, type: string) {
     moduleVersion: tx.moduleVersion,
     changeOrder: tx.changeOrder,
     module: tx.module,
+    playthroughFeedback: tx.playthroughFeedback,
   }[type];
   if (!m) throw new Error(`Can't undo changes to ${type}.`);
   return m as unknown as {

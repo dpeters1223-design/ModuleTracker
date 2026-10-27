@@ -13,7 +13,10 @@ import { AssetList, type AssetRow } from "./asset-list";
 import { sceneAssetCandidates } from "@/lib/assets";
 import { ChangeOrderList } from "@/components/change-order-list";
 import { getChangeOrderRows, getModuleOptions } from "@/lib/change-orders";
-import { todayInZone } from "@/lib/dates";
+import { dayInZone, timeInZone, todayInZone } from "@/lib/dates";
+import { requireUser } from "@/lib/session";
+import { canSignOff } from "@/lib/signoff";
+import { ModuleSignOff } from "./module-signoff";
 import { dayLabel, getActivity } from "@/lib/activity-feed";
 import { ActivityList } from "@/components/activity-list";
 import { GanttChart } from "@/components/gantt-chart";
@@ -44,11 +47,18 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
 
   const objectives = mod.learningObjectives?.split("\n").filter(Boolean) ?? [];
   const script = await getScript(mod.id);
+  const user = await requireUser();
 
   const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity, assetRecords] = await Promise.all([
     prisma.task.findMany({
       where: { moduleId: mod.id },
-      include: { attachments: { select: { id: true, name: true }, orderBy: { addedAt: "asc" } } },
+      include: {
+        attachments: { select: { id: true, name: true }, orderBy: { addedAt: "asc" } },
+        feedback: {
+          select: { id: true, authorId: true, authorName: true, body: true, createdAt: true },
+          orderBy: { createdAt: "asc" },
+        },
+      },
       orderBy: [{ dueDate: "asc" }, { order: "asc" }],
     }),
     prisma.task.findMany({
@@ -119,8 +129,16 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     startDate: day(t.startDate),
     dueDate: day(t.dueDate),
     notes: t.notes ?? "",
+    isPlaythrough: t.isPlaythrough,
     parentId: t.parentId,
     images: t.attachments,
+    feedback: t.feedback.map((f) => ({
+      id: f.id,
+      authorName: f.authorName,
+      when: `${dayLabel(dayInZone(f.createdAt))} at ${timeInZone(f.createdAt)}`,
+      body: f.body,
+      mine: f.authorId === user.id,
+    })),
   }));
   // Suggest the team's names first, so new tasks name people the same way.
   const owners = [...new Set([...teamNames(), ...ownerRows.map((o) => o.owner!).filter(Boolean)])];
@@ -174,6 +192,16 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
           {mod.runtimeMinutes && <span>~{mod.runtimeMinutes} min</span>}
         </div>
       </header>
+
+      <ModuleSignOff
+        moduleId={mod.id}
+        moduleTitle={mod.number ? `${mod.number} – ${mod.name}` : mod.name}
+        signedOffAt={
+          mod.signedOffAt ? `${dayLabel(dayInZone(mod.signedOffAt))} at ${timeInZone(mod.signedOffAt)}` : null
+        }
+        signedOffBy={mod.signedOffBy?.name ?? mod.signedOffBy?.email ?? null}
+        canSignOff={canSignOff(user.email)}
+      />
 
       <Link
         href={`/scripts/${mod.id}`}

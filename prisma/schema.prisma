@@ -115,6 +115,8 @@ model User {
   chatChannelMemberships ChatChannelMember[]
   chatMessages           ChatMessage[]
   chatProfile            ChatProfile?
+  modulesSignedOff       Module[]              @relation("ModuleSignOff")
+  playthroughFeedback    PlaythroughFeedback[]
 
   @@map("users")
 }
@@ -139,9 +141,14 @@ model Module {
   sizeMb             Float?
   /// Google Drive folder the app created for this module's docs
   driveFolderId      String?
+  /// When the module was formally signed off. Set means done; the module is NOT
+  /// archived and can still be changed.
+  signedOffAt        DateTime?
+  signedOffById      String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
+  signedOffBy   User?           @relation("ModuleSignOff", fields: [signedOffById], references: [id], onDelete: SetNull)
   scenes        Scene[]
   documentLinks DocumentLink[]
   tasks         Task[]
@@ -241,11 +248,15 @@ model Task {
   order     Int        @default(0)
   /// Set on a sub-task: the task it belongs to (one level only). Deleting the parent deletes it.
   parentId  String?
+  /// A playthrough: whoever owns it is expected to play the module and write up
+  /// what happened, so the task gets a feedback tab instead of just a notes box.
+  isPlaythrough Boolean @default(false)
 
-  module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  parent      Task?            @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks    Task[]           @relation("Subtasks")
+  module      Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  parent      Task?                 @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks    Task[]                @relation("Subtasks")
   attachments TaskAttachment[]
+  feedback    PlaythroughFeedback[]
 
   @@index([parentId])
   @@map("tasks")
@@ -271,6 +282,28 @@ model TaskAttachment {
   @@index([taskId])
   @@index([assetId])
   @@map("task_attachments")
+}
+
+/**
+ * A write-up of one playthrough of a module: usually a long transcript of what the
+ * person saw, said and struggled with. Several people can play the same task, and
+ * one person can submit more than once, so these are rows rather than a field.
+ * authorName is a snapshot so a write-up still says who wrote it later.
+ */
+model PlaythroughFeedback {
+  id         String   @id @default(cuid())
+  taskId     String
+  authorId   String?
+  authorName String?
+  body       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  task   Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@map("playthrough_feedback")
 }
 
 /// A requested change to a module that is already signed off or deployed.

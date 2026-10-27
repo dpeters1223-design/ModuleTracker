@@ -112,6 +112,7 @@ function QuickAdd({ moduleId, phase, onDone }: { moduleId: string; phase: TaskPh
             startDate: "",
             dueDate: "",
             notes: "",
+            isPlaythrough: false,
           });
           if (res.errors?.length) return setError(res.errors[0]);
           onDone();

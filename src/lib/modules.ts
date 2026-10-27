@@ -7,6 +7,9 @@ export const getModule = cache(async (id: string) => {
   await connection();
   return prisma.module.findUnique({
     where: { id },
-    include: { scenes: { orderBy: { order: "asc" } } },
+    include: {
+      scenes: { orderBy: { order: "asc" } },
+      signedOffBy: { select: { name: true, email: true } },
+    },
   });
 });

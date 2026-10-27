@@ -19,6 +19,8 @@ export type TaskInput = {
   startDate: string; // "YYYY-MM-DD" or ""
   dueDate: string;
   notes: string;
+  /** A playthrough: the owner plays the module and writes up what happened. */
+  isPlaythrough: boolean;
 };
 
 export type TaskResult = { errors?: string[] };
@@ -61,6 +63,7 @@ function validate(input: TaskInput) {
       startDate: toDate(data.startDate),
       dueDate: toDate(data.dueDate),
       notes: data.notes || null,
+      isPlaythrough: Boolean(input.isPlaythrough),
     },
   };
 }
