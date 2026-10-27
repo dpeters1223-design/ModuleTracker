@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { emailList } from "@/lib/activity";
 import { addDays, hourInZone, noonUtc, todayInZone } from "@/lib/dates";
 import { moduleTitle } from "@/lib/script-template";
-import { appUrl, postToSlackNow, slackEscape } from "@/lib/slack";
+import { appUrl, postToSlackNow, slackEscape, slackIds } from "@/lib/slack";
 import { TEAM, buildOwnerIndex, isOwnedBy } from "@/lib/team";
 import { formatDay } from "@/lib/task-format";
 
@@ -19,19 +19,6 @@ import { formatDay } from "@/lib/task-format";
 //                       derived from an email without a bot token.
 //   DIGEST_GIF_URLS   — optional direct .gif/.png URLs, comma-separated. One is
 //                       picked per day so the message isn't the same every morning.
-
-/** Slack member IDs by email, from SLACK_USER_IDS. */
-function slackIds(): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const pair of (process.env.SLACK_USER_IDS ?? "").split(",")) {
-    const at = pair.lastIndexOf(":");
-    if (at < 1) continue;
-    const email = pair.slice(0, at).trim().toLowerCase();
-    const id = pair.slice(at + 1).trim();
-    if (email && id) map.set(email, id);
-  }
-  return map;
-}
 
 /** A stable GIF for this calendar day, so the roundup varies without being random. */
 function gifForDay(day: string): string | null {

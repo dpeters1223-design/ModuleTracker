@@ -11,6 +11,32 @@ export const appUrl = (path = "") =>
 /** Escapes text for Slack's mrkdwn (only &, < and > are special). */
 export const slackEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+/**
+ * Slack member IDs by email, from SLACK_USER_IDS ("email:U0123ABCD,email:U0456WXYZ").
+ * Slack only notifies on the raw <@U…> form, and an ID cannot be derived from an
+ * email without a bot token, so the mapping is kept by hand.
+ */
+export function slackIds(): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const pair of (process.env.SLACK_USER_IDS ?? "").split(",")) {
+    const at = pair.lastIndexOf(":");
+    if (at < 1) continue;
+    const email = pair.slice(0, at).trim().toLowerCase();
+    const id = pair.slice(at + 1).trim();
+    if (email && id) map.set(email, id);
+  }
+  return map;
+}
+
+/**
+ * The mention token for an email, or null when no ID is on file. Never pass the
+ * result through slackEscape — escaped angle brackets render as literal text.
+ */
+export function slackMention(email: string, ids = slackIds()): string | null {
+  const id = ids.get(email.trim().toLowerCase());
+  return id ? `<@${id}>` : null;
+}
+
 /** A Slack webhook payload. `text` is the notification fallback when `blocks` are used. */
 export type SlackPayload = { text: string; blocks?: unknown[] };
 

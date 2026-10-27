@@ -4,9 +4,9 @@ import { changed } from "@/lib/changed";
 import { logActivity } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { canSignOff } from "@/lib/signoff";
+import { canSignOff, signOffMessage } from "@/lib/signoff";
 import { moduleTitle } from "@/lib/script-template";
-import { appUrl, postToSlackLater, slackEscape } from "@/lib/slack";
+import { postToSlackLater } from "@/lib/slack";
 
 export type SignOffResult = { error?: string };
 
@@ -41,11 +41,8 @@ export async function signOffModule(moduleId: string): Promise<SignOffResult> {
     after: { status: after.status, signedOffAt: after.signedOffAt, signedOffById: after.signedOffById },
     slack: false,
   });
-  postToSlackLater(
-    async () =>
-      `:white_check_mark: *${slackEscape(moduleTitle(mod))}* has been signed off by ${slackEscape(user.email)} · ` +
-      `<${appUrl(`/modules/${moduleId}`)}|Open the module>`
-  );
+  const who = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } });
+  postToSlackLater(async () => signOffMessage(moduleTitle(mod), who?.name ?? user.email, moduleId));
   changed();
   return {};
 }
