@@ -215,6 +215,22 @@ export async function buildDueDigest(): Promise<DigestContent> {
   };
 }
 
+/**
+ * Posts a one-off ping to a single person, to check the webhook and that their
+ * Slack member ID really notifies them — without waiting for something of theirs
+ * to fall due, and without pinging anyone else on the way.
+ */
+export async function sendTestPing(email: string): Promise<{ posted: boolean; mentioned: boolean; error?: string }> {
+  const id = slackIds().get(email.trim().toLowerCase());
+  const who = id ? `<@${id}>` : `*${slackEscape(email)}*`;
+  const text =
+    `:wave: ${who} — test ping from the module tracker. ` +
+    `If this pinged you, the morning roundup will too. ` +
+    `<${appUrl("/tasks")}|Open the tracker>`;
+  const { posted, error } = await postToSlackNow({ text });
+  return { posted, mentioned: Boolean(id), ...(error ? { error } : {}) };
+}
+
 export type DigestResult = {
   posted: boolean;
   skipped?: string;

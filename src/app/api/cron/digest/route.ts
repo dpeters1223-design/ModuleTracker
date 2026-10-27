@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildDueDigest, sendDueDigest } from "@/lib/due-digest";
+import { buildDueDigest, sendDueDigest, sendTestPing } from "@/lib/due-digest";
 
 // Morning roundup of overdue and nearly-due tasks, called by Vercel Cron (see
 // vercel.json). Same gate as the nightly backup: Vercel sends
@@ -11,9 +11,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
   try {
+    const params = new URL(request.url).searchParams;
+    // ?test=<email> pings just that person, to prove their member ID notifies them
+    // without waiting for one of their tasks to fall due.
+    const test = params.get("test");
+    if (test) return NextResponse.json({ ok: true, test, ...(await sendTestPing(test)) });
     // ?preview=1 composes the message and hands it back without posting, so the
     // roundup can be checked before it goes to the channel.
-    if (new URL(request.url).searchParams.get("preview") === "1") {
+    if (params.get("preview") === "1") {
       const { blocks, ...preview } = await buildDueDigest();
       void blocks;
       return NextResponse.json({ ok: true, preview: true, ...preview });
