@@ -48,7 +48,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           */}
           <nav className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 px-4 sm:h-14 sm:flex-nowrap sm:items-stretch sm:gap-6 sm:px-6">
             <div className="contents sm:flex sm:min-w-0 sm:items-stretch sm:gap-8">
-              <Link href="/" className="flex h-12 items-center font-semibold tracking-tight text-brand sm:h-auto dark:text-gold">
+              <Link href="/" className="flex h-12 items-center font-semibold tracking-tight text-blue-600 sm:h-auto dark:text-blue-400">
                 ModuleTracker
               </Link>
               {session?.user && <NavTabs />}
