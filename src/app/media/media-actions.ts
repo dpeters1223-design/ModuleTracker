@@ -5,6 +5,7 @@ import { emailList, logActivity } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { isAllowedMime } from "@/lib/attachments";
+import { cleanTags } from "@/lib/media";
 import {
   DriveError,
   findOrCreateRootFolder,
@@ -19,16 +20,6 @@ import {
 const MEDIA_FOLDER = "ModuleTracker Media";
 
 export type MediaResult = { errors?: string[] };
-
-/** Tags are matched case-insensitively, so they are stored lowercased. */
-function cleanTags(tags: string[]): string[] {
-  const out = tags
-    .flatMap((t) => t.split(","))
-    .map((t) => t.trim().toLowerCase().replace(/\s+/g, " "))
-    .filter(Boolean)
-    .map((t) => t.slice(0, 40));
-  return [...new Set(out)].slice(0, 20);
-}
 
 /**
  * First half of an upload: the browser sends the file straight to Drive (Vercel caps

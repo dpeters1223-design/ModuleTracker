@@ -18,6 +18,7 @@ import {
   updateMedia,
   type MediaInput,
 } from "./media-actions";
+import { setAlbumPin } from "./album-actions";
 
 export type MediaRow = {
   id: string;
@@ -36,6 +37,9 @@ export type MediaRow = {
 };
 
 export type ModuleOption = { id: string; label: string };
+export type AlbumOption = { id: string; name: string };
+/** Set on a tile shown inside an album, so it can say how the item got there. */
+export type AlbumContext = { id: string; pinned: boolean };
 
 const inputCls =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 " +
@@ -154,14 +158,20 @@ function Fields({
   );
 }
 
-function Tile({
+export function MediaTile({
   item,
   modules,
   knownTags,
+  albums = [],
+  album,
 }: {
   item: MediaRow;
   modules: ModuleOption[];
   knownTags: string[];
+  /** Albums this item can be added to, from the "Add to album" picker. */
+  albums?: AlbumOption[];
+  /** Present when the tile is being shown inside an album. */
+  album?: AlbumContext;
 }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<MediaInput>({
@@ -265,10 +275,26 @@ function Tile({
               )}
               {item.addedBy && ` · ${item.addedBy}`}
             </p>
-            <div className="flex gap-3 text-xs text-zinc-500">
+            <div className="flex flex-wrap gap-3 text-xs text-zinc-500">
               <button type="button" className="hover:text-zinc-900 dark:hover:text-zinc-100" onClick={() => setEditing(true)}>
                 Edit
               </button>
+              {album ? (
+                album.pinned ? (
+                  <button
+                    type="button"
+                    className="hover:text-zinc-900 dark:hover:text-zinc-100"
+                    disabled={pending}
+                    onClick={() => startTransition(async () => void (await setAlbumPin(album.id, item.id, false)))}
+                  >
+                    Take out of album
+                  </button>
+                ) : (
+                  // It is in by tag, so there is no pin to remove: re-tagging it is the
+                  // only way out, and saying so beats a button that does nothing.
+                  <span title="Remove the matching tag to take it out">In by tag</span>
+                )
+              ) : null}
               <button
                 type="button"
                 className="hover:text-red-700 dark:hover:text-red-400"
@@ -283,6 +309,27 @@ function Tile({
                 Remove
               </button>
             </div>
+            {albums.length > 0 && (
+              <select
+                aria-label={`Add "${item.name}" to an album`}
+                className="mt-1 w-full rounded border border-zinc-300 bg-white px-1.5 py-1 text-xs text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
+                value=""
+                disabled={pending}
+                onChange={(e) => {
+                  const albumId = e.target.value;
+                  if (!albumId) return;
+                  e.target.value = "";
+                  startTransition(async () => void (await setAlbumPin(albumId, item.id, true)));
+                }}
+              >
+                <option value="">Add to album…</option>
+                {albums.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </>
         )}
       </div>
@@ -294,10 +341,12 @@ export function MediaLibrary({
   items,
   modules,
   knownTags,
+  albums = [],
 }: {
   items: MediaRow[];
   modules: ModuleOption[];
   knownTags: string[];
+  albums?: AlbumOption[];
 }) {
   const [adding, setAdding] = useState<"file" | "link" | null>(null);
   const [form, setForm] = useState<MediaInput>(blankInput());
@@ -481,7 +530,7 @@ export function MediaLibrary({
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {items.map((item) => (
-            <Tile key={item.id} item={item} modules={modules} knownTags={knownTags} />
+            <MediaTile key={item.id} item={item} modules={modules} knownTags={knownTags} albums={albums} />
           ))}
         </ul>
       )}

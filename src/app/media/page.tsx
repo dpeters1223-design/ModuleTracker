@@ -41,7 +41,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
       : {}),
   };
 
-  const [rows, modules, total, tagRows] = await Promise.all([
+  const [rows, modules, total, tagRows, albums] = await Promise.all([
     prisma.mediaItem.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -66,6 +66,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
     // Scalar-list columns have no distinct query, so the tag list is flattened here.
     // Fine at a few hundred rows; revisit if the library grows into the thousands.
     prisma.mediaItem.findMany({ select: { tags: true } }),
+    prisma.mediaAlbum.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   const knownTags = [...new Set(tagRows.flatMap((r) => r.tags))].sort();
@@ -98,12 +99,20 @@ export default async function MediaPage(props: PageProps<"/media">) {
             {tag && ` tagged “${tag}”`}
           </p>
         </div>
-        <Link
-          href="/media/assets"
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          Assets across modules →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/media/albums"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Albums{albums.length > 0 && ` (${albums.length})`} →
+          </Link>
+          <Link
+            href="/media/assets"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            Assets across modules →
+          </Link>
+        </div>
       </div>
 
       {/* Plain GET form: filters live in the URL, so a filtered view can be shared. */}
@@ -145,7 +154,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
         )}
       </form>
 
-      <MediaLibrary items={items} modules={moduleOptions} knownTags={knownTags} />
+      <MediaLibrary items={items} modules={moduleOptions} knownTags={knownTags} albums={albums} />
     </main>
   );
 }

@@ -22,6 +22,8 @@ import { ActivityList } from "@/components/activity-list";
 import { GanttChart } from "@/components/gantt-chart";
 import { SceneActivity } from "@/components/scene-activity";
 import { moduleTitle } from "@/lib/script-template";
+import { listAlbums } from "@/lib/media";
+import { AlbumCoverMosaic } from "@/app/media/albums/album-cover";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -49,7 +51,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
   const script = await getScript(mod.id);
   const user = await requireUser();
 
-  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity, assetRecords] = await Promise.all([
+  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity, assetRecords, albums] = await Promise.all([
     prisma.task.findMany({
       where: { moduleId: mod.id },
       include: {
@@ -85,6 +87,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
       include: { attachments: { select: { id: true, name: true, mimeType: true }, orderBy: { addedAt: "asc" } } },
       orderBy: { order: "asc" },
     }),
+    listAlbums({ moduleId: mod.id }),
   ]);
   const assets: AssetRow[] = assetRecords.map((a) => ({
     id: a.id,
@@ -281,6 +284,40 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
           fromScenes={assetsFromScenes}
         />
       </section>
+
+      {/* Albums attached to this module. Hidden when there are none, so a module that
+          doesn't work in albums isn't given an empty box. */}
+      {albums.length > 0 && (
+        <section id="albums" className="scroll-mt-4 space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Media albums</h2>
+              <p className="text-sm text-zinc-500">Sets of media for this module, from the library.</p>
+            </div>
+            <Link href="/media/albums" className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+              All albums →
+            </Link>
+          </div>
+          <ul className="flex flex-wrap gap-4">
+            {albums.map((a) => (
+              <li key={a.id} className="w-36">
+                <Link href={`/media/albums/${a.id}`} className="group block">
+                  <AlbumCoverMosaic
+                    covers={a.covers}
+                    className="aspect-square overflow-hidden rounded-lg border border-zinc-300 dark:border-zinc-700"
+                  />
+                  <p className="mt-1.5 text-sm font-medium break-words group-hover:underline underline-offset-4">
+                    {a.name}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {a.count} item{a.count === 1 ? "" : "s"}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <Section title="Documents">
         <DocumentList moduleId={mod.id} documents={documents} />

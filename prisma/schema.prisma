@@ -118,6 +118,7 @@ model User {
   modulesSignedOff       Module[]              @relation("ModuleSignOff")
   playthroughFeedback    PlaythroughFeedback[]
   mediaItemsAdded        MediaItem[]
+  mediaAlbumsCreated     MediaAlbum[]
 
   @@map("users")
 }
@@ -157,6 +158,7 @@ model Module {
   versions      ModuleVersion[]
   assets        ModuleAsset[]
   mediaItems    MediaItem[]
+  mediaAlbums   MediaAlbum[]
 
   @@map("modules")
 }
@@ -351,11 +353,58 @@ model MediaItem {
   scene   Scene?       @relation(fields: [sceneId], references: [id], onDelete: SetNull)
   asset   ModuleAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
   addedBy User?        @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  albums  MediaAlbumItem[]
 
   @@index([moduleId])
   @@index([assetId])
   @@index([tags], type: Gin)
   @@map("media_items")
+}
+
+/**
+ * A named set of media, assembled two ways at once: everything carrying one of the
+ * album's `tags` is in it automatically, and anything else can be pinned in by hand.
+ * So "Reference images" stays current on its own, while "Shots for Tom's review" is
+ * a deliberate selection — both are albums.
+ *
+ * An album can be attached to a module, which is what makes it show on that module's
+ * page; unattached albums live only in the library.
+ */
+model MediaAlbum {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  /// Membership rule: any media item carrying ANY of these tags belongs to the album.
+  /// Empty means the album is hand-picked only.
+  tags        String[] @default([])
+  moduleId    String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module    Module?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  createdBy User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  items     MediaAlbumItem[]
+
+  @@index([moduleId])
+  @@map("media_albums")
+}
+
+/// One hand-pinned item in an album. Tag-matched items are not stored here — they
+/// are resolved at read time, so re-tagging an image updates every album at once.
+model MediaAlbumItem {
+  id      String   @id @default(cuid())
+  albumId String
+  mediaId String
+  order   Int      @default(0)
+  addedAt DateTime @default(now())
+
+  album MediaAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  media MediaItem  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([albumId, mediaId])
+  @@index([mediaId])
+  @@map("media_album_items")
 }
 
 /// A requested change to a module that is already signed off or deployed.

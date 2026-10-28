@@ -22,7 +22,9 @@ type EntityType =
   | "changeOrder"
   | "module"
   | "playthroughFeedback"
-  | "mediaItem";
+  | "mediaItem"
+  | "mediaAlbum"
+  | "mediaAlbumItem";
 
 export type LogInput = {
   action: string;
@@ -104,6 +106,8 @@ function model(tx: Prisma.TransactionClient, type: string) {
     module: tx.module,
     playthroughFeedback: tx.playthroughFeedback,
     mediaItem: tx.mediaItem,
+    mediaAlbum: tx.mediaAlbum,
+    mediaAlbumItem: tx.mediaAlbumItem,
   }[type];
   if (!m) throw new Error(`Can't undo changes to ${type}.`);
   return m as unknown as {
@@ -159,6 +163,11 @@ export async function undoActivity(actor: Actor, id: string): Promise<{ error?: 
           if ((attachments as Row[] | undefined)?.length) {
             await tx.taskAttachment.createMany({ data: attachments as never });
           }
+        } else if (entry.entityType === "mediaAlbum" && Array.isArray(before.items)) {
+          // A deleted album's copy carries its pinned items: the album, then the pins.
+          const { items, ...album } = before;
+          await m.create({ data: album });
+          if ((items as Row[]).length) await tx.mediaAlbumItem.createMany({ data: items as never });
         } else await m.create({ data: before });
       } else if (kind === "update") {
         if (!before) throw new Error("No saved copy to restore.");
