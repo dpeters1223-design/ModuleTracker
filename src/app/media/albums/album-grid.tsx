@@ -6,6 +6,7 @@ import type { AlbumSummary } from "@/lib/media";
 import type { ModuleOption } from "../media-library";
 import { createAlbum, deleteAlbum, updateAlbum, type AlbumInput } from "../album-actions";
 import { AlbumCoverMosaic } from "./album-cover";
+import { TagsInput } from "@/components/tags-input";
 
 const inputCls =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 " +
@@ -39,19 +40,14 @@ function Fields({
         value={value.name}
         onChange={(e) => set("name", e.target.value)}
       />
-      <input
-        aria-label="Tags that fill the album"
-        list="album-tag-options"
-        className={inputCls}
+      <TagsInput
+        value={value.tags}
+        onChange={(tags) => set("tags", tags)}
+        knownTags={knownTags}
+        listId="album-tag-options"
         placeholder="Fill automatically from tags, comma separated (optional)"
-        value={value.tags.join(", ")}
-        onChange={(e) => set("tags", e.target.value.split(","))}
+        ariaLabel="Tags that fill the album"
       />
-      <datalist id="album-tag-options">
-        {knownTags.map((t) => (
-          <option key={t} value={t} />
-        ))}
-      </datalist>
       <p className="text-xs text-zinc-500">
         Anything carrying one of those tags joins the album on its own. You can also add items by hand from the
         library — both end up in the same album.

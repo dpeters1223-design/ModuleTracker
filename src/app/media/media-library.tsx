@@ -19,6 +19,7 @@ import {
   type MediaInput,
 } from "./media-actions";
 import { setAlbumPin } from "./album-actions";
+import { TagsInput } from "@/components/tags-input";
 
 export type MediaRow = {
   id: string;
@@ -126,19 +127,13 @@ function Fields({
         value={value.name}
         onChange={(e) => set("name", e.target.value)}
       />
-      <input
-        aria-label="Tags"
-        list="media-tag-options"
-        className={inputCls}
+      <TagsInput
+        value={value.tags}
+        onChange={(tags) => set("tags", tags)}
+        knownTags={knownTags}
+        listId="media-tag-options"
         placeholder="Tags, comma separated — e.g. reference, wafer carrier"
-        value={value.tags.join(", ")}
-        onChange={(e) => set("tags", e.target.value.split(","))}
       />
-      <datalist id="media-tag-options">
-        {knownTags.map((t) => (
-          <option key={t} value={t} />
-        ))}
-      </datalist>
       <textarea
         aria-label="Description"
         className={`${inputCls} min-h-16`}
