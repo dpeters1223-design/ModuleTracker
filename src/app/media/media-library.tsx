@@ -40,6 +40,8 @@ export type MediaRow = {
 export type ModuleOption = { id: string; label: string };
 export type AssetOption = { id: string; moduleId: string; name: string };
 export type AlbumOption = { id: string; name: string };
+/** Large icons (the original grid), small icons (denser), or a one-row-per-item list. */
+export type MediaView = "large" | "small" | "list";
 /** Set on a tile shown inside an album, so it can say how the item got there. */
 export type AlbumContext = { id: string; pinned: boolean };
 
@@ -194,6 +196,7 @@ export function MediaTile({
   knownTags,
   albums = [],
   album,
+  view = "large",
 }: {
   item: MediaRow;
   modules: ModuleOption[];
@@ -203,6 +206,7 @@ export function MediaTile({
   albums?: AlbumOption[];
   /** Present when the tile is being shown inside an album. */
   album?: AlbumContext;
+  view?: MediaView;
 }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<MediaInput>({
@@ -219,61 +223,196 @@ export function MediaTile({
   const href = item.url ?? `/api/media/${item.id}`;
   const image = item.hasFile && item.mimeType && isImageMime(item.mimeType);
 
+  // A plain function, not a nested component — it just returns JSX, so calling it
+  // doesn't give React a new component identity to remount on every render.
+  const thumb = (className: string) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" title={item.name} className={className}>
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element -- served by our own signed-in route
+        <img
+          src={`/api/media/${item.id}?thumb=1`}
+          alt={item.name}
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center text-xs font-semibold tracking-wide text-zinc-500 uppercase">
+          {item.url ? "Link" : fileKind(item.mimeType ?? "")}
+        </span>
+      )}
+    </a>
+  );
+
+  const formBody = (
+    <form
+      className="space-y-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        startTransition(async () => {
+          const res = await updateMedia(item.id, form);
+          if (res.errors?.length) return setErrors(res.errors);
+          setErrors([]);
+          setEditing(false);
+        });
+      }}
+    >
+      {errors.length > 0 && (
+        <ul role="alert" className="list-disc pl-5 text-xs text-red-700 dark:text-red-400">
+          {errors.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      )}
+      <Fields value={form} onChange={setForm} modules={modules} assets={assets} knownTags={knownTags} />
+      <div className="flex gap-2">
+        <button type="submit" className={primaryBtn} disabled={pending}>
+          {pending ? "Saving…" : "Save"}
+        </button>
+        <button type="button" className={secondaryBtn} disabled={pending} onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+
+  const actionsRow = (
+    <div className="flex flex-wrap gap-3 text-xs text-zinc-500">
+      <button type="button" className="hover:text-zinc-900 dark:hover:text-zinc-100" onClick={() => setEditing(true)}>
+        Edit
+      </button>
+      {album ? (
+        album.pinned ? (
+          <button
+            type="button"
+            className="hover:text-zinc-900 dark:hover:text-zinc-100"
+            disabled={pending}
+            onClick={() => startTransition(async () => void (await setAlbumPin(album.id, item.id, false)))}
+          >
+            Take out of album
+          </button>
+        ) : (
+          // It is in by tag, so there is no pin to remove: re-tagging it is the
+          // only way out, and saying so beats a button that does nothing.
+          <span title="Remove the matching tag to take it out">In by tag</span>
+        )
+      ) : null}
+      <button
+        type="button"
+        className="hover:text-red-700 dark:hover:text-red-400"
+        disabled={pending}
+        onClick={() => {
+          if (!confirm(`Remove "${item.name}" from the library? The file stays in Drive.`)) return;
+          startTransition(async () => {
+            await removeMedia(item.id);
+          });
+        }}
+      >
+        Remove
+      </button>
+    </div>
+  );
+
+  const albumPicker = albums.length > 0 && (
+    <select
+      aria-label={`Add "${item.name}" to an album`}
+      className="w-full rounded border border-zinc-300 bg-white px-1.5 py-1 text-xs text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
+      value=""
+      disabled={pending}
+      onChange={(e) => {
+        const albumId = e.target.value;
+        if (!albumId) return;
+        e.target.value = "";
+        startTransition(async () => void (await setAlbumPin(albumId, item.id, true)));
+      }}
+    >
+      <option value="">Add to album…</option>
+      {albums.map((a) => (
+        <option key={a.id} value={a.id}>
+          {a.name}
+        </option>
+      ))}
+    </select>
+  );
+
+  if (view === "list") {
+    return (
+      <li className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
+        {editing ? (
+          <div className="w-full">{formBody}</div>
+        ) : (
+          <>
+            {thumb(
+              "block h-12 w-12 shrink-0 overflow-hidden rounded border border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900"
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{item.name}</p>
+              <p className="flex flex-wrap items-center gap-x-1 truncate text-xs text-zinc-500">
+                {item.moduleLabel ? (
+                  <Link href={`/modules/${item.moduleId}`} className="hover:underline underline-offset-4">
+                    {item.moduleLabel}
+                  </Link>
+                ) : (
+                  "No module"
+                )}
+                {item.tags.length > 0 && (
+                  <>
+                    {" · "}
+                    {item.tags.map((t, i) => (
+                      <span key={t}>
+                        {i > 0 && ", "}
+                        <Link
+                          href={`/media?tag=${encodeURIComponent(t)}`}
+                          className="text-brand hover:underline dark:text-teal-light"
+                        >
+                          {t}
+                        </Link>
+                      </span>
+                    ))}
+                  </>
+                )}
+                {item.addedBy && ` · ${item.addedBy}`}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-3 sm:ml-auto">{actionsRow}</div>
+            {albumPicker && <div className="w-full sm:w-44">{albumPicker}</div>}
+          </>
+        )}
+      </li>
+    );
+  }
+
+  if (view === "small") {
+    return (
+      <li
+        className={`flex flex-col overflow-hidden rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950 ${
+          editing ? "col-span-2 row-span-2 sm:col-span-3" : ""
+        }`}
+      >
+        {thumb("block aspect-square bg-zinc-100 dark:bg-zinc-900")}
+        <div className="flex flex-1 flex-col gap-1 p-2">
+          {editing ? (
+            formBody
+          ) : (
+            <>
+              <p className="truncate text-xs font-medium" title={item.name}>
+                {item.name}
+              </p>
+              {actionsRow}
+              {albumPicker}
+            </>
+          )}
+        </div>
+      </li>
+    );
+  }
+
+  // Large icons: the original grid tile, full detail.
   return (
     <li className="flex flex-col overflow-hidden rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950">
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        title={item.name}
-        className="block aspect-square bg-zinc-100 dark:bg-zinc-900"
-      >
-        {image ? (
-          // eslint-disable-next-line @next/next/no-img-element -- served by our own signed-in route
-          <img
-            src={`/api/media/${item.id}?thumb=1`}
-            alt={item.name}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span className="flex h-full w-full items-center justify-center text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-            {item.url ? "Link" : fileKind(item.mimeType ?? "")}
-          </span>
-        )}
-      </a>
-
+      {thumb("block aspect-square bg-zinc-100 dark:bg-zinc-900")}
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         {editing ? (
-          <form
-            className="space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              startTransition(async () => {
-                const res = await updateMedia(item.id, form);
-                if (res.errors?.length) return setErrors(res.errors);
-                setErrors([]);
-                setEditing(false);
-              });
-            }}
-          >
-            {errors.length > 0 && (
-              <ul role="alert" className="list-disc pl-5 text-xs text-red-700 dark:text-red-400">
-                {errors.map((e) => (
-                  <li key={e}>{e}</li>
-                ))}
-              </ul>
-            )}
-            <Fields value={form} onChange={setForm} modules={modules} assets={assets} knownTags={knownTags} />
-            <div className="flex gap-2">
-              <button type="submit" className={primaryBtn} disabled={pending}>
-                {pending ? "Saving…" : "Save"}
-              </button>
-              <button type="button" className={secondaryBtn} disabled={pending} onClick={() => setEditing(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
+          formBody
         ) : (
           <>
             <p className="text-sm font-medium break-words">{item.name}</p>
@@ -306,61 +445,8 @@ export function MediaTile({
               )}
               {item.addedBy && ` · ${item.addedBy}`}
             </p>
-            <div className="flex flex-wrap gap-3 text-xs text-zinc-500">
-              <button type="button" className="hover:text-zinc-900 dark:hover:text-zinc-100" onClick={() => setEditing(true)}>
-                Edit
-              </button>
-              {album ? (
-                album.pinned ? (
-                  <button
-                    type="button"
-                    className="hover:text-zinc-900 dark:hover:text-zinc-100"
-                    disabled={pending}
-                    onClick={() => startTransition(async () => void (await setAlbumPin(album.id, item.id, false)))}
-                  >
-                    Take out of album
-                  </button>
-                ) : (
-                  // It is in by tag, so there is no pin to remove: re-tagging it is the
-                  // only way out, and saying so beats a button that does nothing.
-                  <span title="Remove the matching tag to take it out">In by tag</span>
-                )
-              ) : null}
-              <button
-                type="button"
-                className="hover:text-red-700 dark:hover:text-red-400"
-                disabled={pending}
-                onClick={() => {
-                  if (!confirm(`Remove "${item.name}" from the library? The file stays in Drive.`)) return;
-                  startTransition(async () => {
-                    await removeMedia(item.id);
-                  });
-                }}
-              >
-                Remove
-              </button>
-            </div>
-            {albums.length > 0 && (
-              <select
-                aria-label={`Add "${item.name}" to an album`}
-                className="mt-1 w-full rounded border border-zinc-300 bg-white px-1.5 py-1 text-xs text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
-                value=""
-                disabled={pending}
-                onChange={(e) => {
-                  const albumId = e.target.value;
-                  if (!albumId) return;
-                  e.target.value = "";
-                  startTransition(async () => void (await setAlbumPin(albumId, item.id, true)));
-                }}
-              >
-                <option value="">Add to album…</option>
-                {albums.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            {actionsRow}
+            {albumPicker && <div className="mt-1">{albumPicker}</div>}
           </>
         )}
       </div>
@@ -375,6 +461,7 @@ export function MediaLibrary({
   knownTags,
   albums = [],
   initialAsset,
+  view = "large",
 }: {
   items: MediaRow[];
   modules: ModuleOption[];
@@ -383,6 +470,7 @@ export function MediaLibrary({
   albums?: AlbumOption[];
   /** Arriving from an asset's "Media library" link: open the uploader pre-filled. */
   initialAsset?: AssetOption;
+  view?: MediaView;
 }) {
   const [adding, setAdding] = useState<"file" | "link" | null>(() => (initialAsset ? "file" : null));
   const [form, setForm] = useState<MediaInput>(() =>
@@ -572,9 +660,25 @@ export function MediaLibrary({
           </p>
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <ul
+          className={
+            view === "list"
+              ? "divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950"
+              : view === "small"
+                ? "grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+                : "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
+          }
+        >
           {items.map((item) => (
-            <MediaTile key={item.id} item={item} modules={modules} assets={assets} knownTags={knownTags} albums={albums} />
+            <MediaTile
+              key={item.id}
+              item={item}
+              modules={modules}
+              assets={assets}
+              knownTags={knownTags}
+              albums={albums}
+              view={view}
+            />
           ))}
         </ul>
       )}
