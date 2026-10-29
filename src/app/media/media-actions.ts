@@ -53,6 +53,20 @@ export type MediaInput = {
   assetId: string;
 };
 
+/**
+ * An item tied to an asset belongs to that asset's own module — the picker in the UI
+ * only ever offers assets from the module already chosen, but this is the one place
+ * that's actually enforced, so a stale or tampered moduleId can't disagree with the
+ * asset it's supposedly attached to. An assetId that no longer exists is dropped
+ * rather than left dangling.
+ */
+async function resolveAssetLink(input: MediaInput): Promise<{ moduleId: string | null; assetId: string | null }> {
+  if (!input.assetId) return { moduleId: input.moduleId || null, assetId: null };
+  const asset = await prisma.moduleAsset.findUnique({ where: { id: input.assetId }, select: { moduleId: true } });
+  if (!asset) return { moduleId: input.moduleId || null, assetId: null };
+  return { moduleId: asset.moduleId, assetId: input.assetId };
+}
+
 /** Second half: check what Drive actually received, then add it to the library. */
 export async function registerMedia(
   fileId: string,
@@ -66,6 +80,7 @@ export async function registerMedia(
     if (!isAllowedMime(meta.mimeType)) {
       return { errors: [`${meta.mimeType || "That kind of file"} can't be added to the library.`] };
     }
+    const { moduleId, assetId } = await resolveAssetLink(input);
     const item = await prisma.mediaItem.create({
       data: {
         name: (input.name.trim() || meta.name).slice(0, 200),
@@ -74,9 +89,9 @@ export async function registerMedia(
         driveFileId: meta.id,
         mimeType: meta.mimeType,
         thumbFileId,
-        moduleId: input.moduleId || null,
+        moduleId,
         sceneId: input.sceneId || null,
-        assetId: input.assetId || null,
+        assetId,
         addedById: user.id,
       },
     });
@@ -103,15 +118,16 @@ export async function addMediaLink(url: string, input: MediaInput): Promise<Medi
   if (!/^https:\/\//i.test(link)) return { errors: ["The link must start with https://"] };
   if (!input.name.trim()) return { errors: ["Give it a name."] };
 
+  const { moduleId, assetId } = await resolveAssetLink(input);
   const item = await prisma.mediaItem.create({
     data: {
       name: input.name.trim().slice(0, 200),
       description: input.description.trim() || null,
       tags: cleanTags(input.tags),
       url: link,
-      moduleId: input.moduleId || null,
+      moduleId,
       sceneId: input.sceneId || null,
-      assetId: input.assetId || null,
+      assetId,
       addedById: user.id,
     },
   });
@@ -134,15 +150,16 @@ export async function updateMedia(id: string, input: MediaInput): Promise<MediaR
   if (!before) return { errors: ["That item is no longer in the library."] };
   if (!input.name.trim()) return { errors: ["Give it a name."] };
 
+  const { moduleId, assetId } = await resolveAssetLink(input);
   const after = await prisma.mediaItem.update({
     where: { id },
     data: {
       name: input.name.trim().slice(0, 200),
       description: input.description.trim() || null,
       tags: cleanTags(input.tags),
-      moduleId: input.moduleId || null,
+      moduleId,
       sceneId: input.sceneId || null,
-      assetId: input.assetId || null,
+      assetId,
     },
   });
   await logActivity(user, {

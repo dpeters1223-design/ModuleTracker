@@ -1,8 +1,10 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import Link from "next/link";
 import type { AssetStatus } from "@prisma/client";
 import { ASSET_TYPE_LABELS, ASSET_TYPES, isInHand } from "@/lib/assets";
+import { fileKind, isImageMime } from "@/lib/attachments";
 import { AttachImagePanel, TaskImages, type TaskImage } from "@/components/task-images";
 import {
   addAssetsFromScenes,
@@ -14,7 +16,9 @@ import {
   type AssetResult,
 } from "./asset-actions";
 
-export type AssetRow = AssetInput & { id: string; images: TaskImage[] };
+/** A media-library item linked to this asset (via its Asset field on the item). */
+export type LinkedMedia = { id: string; name: string; mimeType: string | null; hasFile: boolean; url: string | null };
+export type AssetRow = AssetInput & { id: string; images: TaskImage[]; media: LinkedMedia[] };
 export type SceneOption = { id: string; label: string };
 
 const inputCls =
@@ -221,11 +225,47 @@ function AssetLine({
         </p>
         {asset.notes && <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-400">{asset.notes}</p>}
         <TaskImages moduleId={moduleId} images={asset.images} />
+        {asset.media.length > 0 && (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {asset.media.map((m) => {
+              const href = m.url ?? `/api/media/${m.id}`;
+              const image = m.hasFile && isImageMime(m.mimeType ?? "");
+              return (
+                <li key={m.id}>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`${m.name} — from the media library`}
+                    className="block overflow-hidden rounded-md border border-teal/50 dark:border-teal/40"
+                  >
+                    {image ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- served by our own signed-in route
+                      <img
+                        src={`/api/media/${m.id}?thumb=1`}
+                        alt={m.name}
+                        loading="lazy"
+                        className="h-16 w-16 object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-16 w-16 items-center justify-center bg-teal-light text-[10px] font-semibold tracking-wide text-brand uppercase dark:bg-teal/20 dark:text-teal-light">
+                        {m.url ? "Link" : fileKind(m.mimeType ?? "")}
+                      </span>
+                    )}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        )}
         {attaching && (
           <AttachImagePanel moduleId={moduleId} target={{ kind: "asset", id: asset.id }} onDone={() => setAttaching(false)} />
         )}
       </div>
       <div className="ml-auto flex gap-3 sm:ml-0">
+        <Link href={`/media?asset=${asset.id}`} className={linkBtn} title="Open the media library, pre-filled for this asset">
+          Media library
+        </Link>
         <button type="button" className={linkBtn} onClick={() => setAttaching(true)}>
           Attach file
         </button>

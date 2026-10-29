@@ -38,6 +38,7 @@ export type MediaRow = {
 };
 
 export type ModuleOption = { id: string; label: string };
+export type AssetOption = { id: string; moduleId: string; name: string };
 export type AlbumOption = { id: string; name: string };
 /** Set on a tile shown inside an album, so it can say how the item got there. */
 export type AlbumContext = { id: string; pinned: boolean };
@@ -103,21 +104,29 @@ async function uploadToDrive(
 
 const blankInput = (): MediaInput => ({ name: "", description: "", tags: [], moduleId: "", sceneId: "", assetId: "" });
 
-/** Name, tags and which module an item belongs to — shared by the add and edit forms. */
+/**
+ * Name, module, asset, tags and description — shared by the add and edit forms.
+ * Asset is scoped to whichever module is picked, since an asset belongs to one
+ * module and the two selects need to agree: switching the module drops an asset
+ * choice that no longer belongs to it, rather than leaving a mismatched pair.
+ */
 function Fields({
   value,
   onChange,
   modules,
+  assets,
   knownTags,
   nameOptional,
 }: {
   value: MediaInput;
   onChange: (v: MediaInput) => void;
   modules: ModuleOption[];
+  assets: AssetOption[];
   knownTags: string[];
   nameOptional?: boolean;
 }) {
   const set = <K extends keyof MediaInput>(k: K, v: MediaInput[K]) => onChange({ ...value, [k]: v });
+  const assetsInModule = assets.filter((a) => a.moduleId === value.moduleId);
   return (
     <div className="space-y-2">
       <input
@@ -127,6 +136,39 @@ function Fields({
         value={value.name}
         onChange={(e) => set("name", e.target.value)}
       />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <select
+          aria-label="Module"
+          className={inputCls}
+          value={value.moduleId}
+          onChange={(e) => {
+            const moduleId = e.target.value;
+            const stillValid = assets.some((a) => a.id === value.assetId && a.moduleId === moduleId);
+            onChange({ ...value, moduleId, assetId: stillValid ? value.assetId : "" });
+          }}
+        >
+          <option value="">No module</option>
+          {modules.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Asset"
+          className={inputCls}
+          value={value.assetId}
+          disabled={!value.moduleId}
+          onChange={(e) => set("assetId", e.target.value)}
+        >
+          <option value="">{value.moduleId ? "Not a specific asset" : "Pick a module first"}</option>
+          {assetsInModule.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <TagsInput
         value={value.tags}
         onChange={(tags) => set("tags", tags)}
@@ -141,14 +183,6 @@ function Fields({
         value={value.description}
         onChange={(e) => set("description", e.target.value)}
       />
-      <select aria-label="Module" className={inputCls} value={value.moduleId} onChange={(e) => set("moduleId", e.target.value)}>
-        <option value="">No module</option>
-        {modules.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.label}
-          </option>
-        ))}
-      </select>
     </div>
   );
 }
@@ -156,12 +190,14 @@ function Fields({
 export function MediaTile({
   item,
   modules,
+  assets = [],
   knownTags,
   albums = [],
   album,
 }: {
   item: MediaRow;
   modules: ModuleOption[];
+  assets?: AssetOption[];
   knownTags: string[];
   /** Albums this item can be added to, from the "Add to album" picker. */
   albums?: AlbumOption[];
@@ -228,7 +264,7 @@ export function MediaTile({
                 ))}
               </ul>
             )}
-            <Fields value={form} onChange={setForm} modules={modules} knownTags={knownTags} />
+            <Fields value={form} onChange={setForm} modules={modules} assets={assets} knownTags={knownTags} />
             <div className="flex gap-2">
               <button type="submit" className={primaryBtn} disabled={pending}>
                 {pending ? "Saving…" : "Save"}
@@ -335,16 +371,23 @@ export function MediaTile({
 export function MediaLibrary({
   items,
   modules,
+  assets = [],
   knownTags,
   albums = [],
+  initialAsset,
 }: {
   items: MediaRow[];
   modules: ModuleOption[];
+  assets?: AssetOption[];
   knownTags: string[];
   albums?: AlbumOption[];
+  /** Arriving from an asset's "Media library" link: open the uploader pre-filled. */
+  initialAsset?: AssetOption;
 }) {
-  const [adding, setAdding] = useState<"file" | "link" | null>(null);
-  const [form, setForm] = useState<MediaInput>(blankInput());
+  const [adding, setAdding] = useState<"file" | "link" | null>(() => (initialAsset ? "file" : null));
+  const [form, setForm] = useState<MediaInput>(() =>
+    initialAsset ? { ...blankInput(), moduleId: initialAsset.moduleId, assetId: initialAsset.id } : blankInput()
+  );
   const [linkUrl, setLinkUrl] = useState("");
   const [status, setStatus] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -424,6 +467,12 @@ export function MediaLibrary({
           }}
           className="mb-6 space-y-3 rounded-lg border border-dashed border-zinc-400 bg-zinc-50 p-4 outline-none focus:border-zinc-600 dark:border-zinc-500 dark:bg-zinc-900/50"
         >
+          {initialAsset && (
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Adding media for <span className="font-medium text-zinc-900 dark:text-zinc-100">{initialAsset.name}</span> — change
+              the Asset field below if that&apos;s not right.
+            </p>
+          )}
           {errors.length > 0 && (
             <ul role="alert" className="list-disc pl-5 text-sm text-red-700 dark:text-red-400">
               {errors.map((e) => (
@@ -431,7 +480,7 @@ export function MediaLibrary({
               ))}
             </ul>
           )}
-          <Fields value={form} onChange={setForm} modules={modules} knownTags={knownTags} nameOptional />
+          <Fields value={form} onChange={setForm} modules={modules} assets={assets} knownTags={knownTags} nameOptional />
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className={primaryBtn} disabled={busy} onClick={() => fileInput.current?.click()}>
               Choose files…
@@ -495,7 +544,7 @@ export function MediaLibrary({
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
           />
-          <Fields value={form} onChange={setForm} modules={modules} knownTags={knownTags} />
+          <Fields value={form} onChange={setForm} modules={modules} assets={assets} knownTags={knownTags} />
           <div className="flex gap-2">
             <button type="submit" className={primaryBtn} disabled={pending}>
               {pending ? "Saving…" : "Add to library"}
@@ -525,7 +574,7 @@ export function MediaLibrary({
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {items.map((item) => (
-            <MediaTile key={item.id} item={item} modules={modules} knownTags={knownTags} albums={albums} />
+            <MediaTile key={item.id} item={item} modules={modules} assets={assets} knownTags={knownTags} albums={albums} />
           ))}
         </ul>
       )}

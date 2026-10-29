@@ -51,7 +51,7 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
   const script = await getScript(mod.id);
   const user = await requireUser();
 
-  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity, assetRecords, albums] = await Promise.all([
+  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity, assetRecords, albums, mediaByAsset] = await Promise.all([
     prisma.task.findMany({
       where: { moduleId: mod.id },
       include: {
@@ -88,6 +88,12 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
       orderBy: { order: "asc" },
     }),
     listAlbums({ moduleId: mod.id }),
+    // Media library items linked to one of this module's assets — the asset's own
+    // picture, as opposed to the module-wide albums above.
+    prisma.mediaItem.findMany({
+      where: { moduleId: mod.id, assetId: { not: null } },
+      select: { id: true, name: true, mimeType: true, driveFileId: true, url: true, assetId: true },
+    }),
   ]);
   const assets: AssetRow[] = assetRecords.map((a) => ({
     id: a.id,
@@ -99,6 +105,9 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
     url: a.url ?? "",
     notes: a.notes ?? "",
     images: a.attachments,
+    media: mediaByAsset
+      .filter((m) => m.assetId === a.id)
+      .map((m) => ({ id: m.id, name: m.name, mimeType: m.mimeType, hasFile: Boolean(m.driveFileId), url: m.url })),
   }));
   const listedKeys = new Set(assetRecords.map((a) => a.sourceKey));
   const assetsFromScenes = sceneAssetCandidates(mod.scenes).filter((c) => !listedKeys.has(c.sourceKey)).length;

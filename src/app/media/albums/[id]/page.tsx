@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { getAlbum } from "@/lib/media";
 import { moduleTitle } from "@/lib/script-template";
-import { MediaTile, type ModuleOption } from "../../media-library";
+import { MediaTile, type AssetOption, type ModuleOption } from "../../media-library";
 
 export async function generateMetadata(props: PageProps<"/media/albums/[id]">): Promise<Metadata> {
   const { id } = await props.params;
@@ -20,15 +20,17 @@ export default async function AlbumPage(props: PageProps<"/media/albums/[id]">) 
   await requireUser();
   const { id } = await props.params;
 
-  const [album, modules, tagRows] = await Promise.all([
+  const [album, modules, tagRows, assetRows] = await Promise.all([
     getAlbum(id),
     prisma.module.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, number: true, name: true } }),
     prisma.mediaItem.findMany({ select: { tags: true } }),
+    prisma.moduleAsset.findMany({ select: { id: true, moduleId: true, name: true }, orderBy: { order: "asc" } }),
   ]);
   if (!album) notFound();
 
   const knownTags = [...new Set(tagRows.flatMap((r) => r.tags))].sort();
   const moduleOptions: ModuleOption[] = modules.map((m) => ({ id: m.id, label: moduleTitle(m) }));
+  const assetOptions: AssetOption[] = assetRows;
   const byTag = album.items.filter((i) => !i.pinned).length;
 
   return (
@@ -90,6 +92,7 @@ export default async function AlbumPage(props: PageProps<"/media/albums/[id]">) 
               key={item.id}
               item={item}
               modules={moduleOptions}
+              assets={assetOptions}
               knownTags={knownTags}
               album={{ id: album.id, pinned: item.pinned }}
             />

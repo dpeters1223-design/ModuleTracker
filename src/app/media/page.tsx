@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/session";
 import { dayInZone, timeInZone } from "@/lib/dates";
 import { dayLabel } from "@/lib/activity-feed";
 import { moduleTitle } from "@/lib/script-template";
-import { MediaLibrary, type MediaRow, type ModuleOption } from "./media-library";
+import { MediaLibrary, type AssetOption, type MediaRow, type ModuleOption } from "./media-library";
 
 export const metadata: Metadata = { title: "Media library · ModuleTracker" };
 
@@ -27,6 +27,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
   const tag = one(params.tag).trim().toLowerCase();
   const moduleId = one(params.module);
   const q = one(params.q).trim();
+  const assetParam = one(params.asset);
 
   const where: Prisma.MediaItemWhereInput = {
     ...(tag ? { tags: { has: tag } } : {}),
@@ -41,7 +42,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
       : {}),
   };
 
-  const [rows, modules, total, tagRows, albums] = await Promise.all([
+  const [rows, modules, total, tagRows, albums, assetRows] = await Promise.all([
     prisma.mediaItem.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -67,6 +68,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
     // Fine at a few hundred rows; revisit if the library grows into the thousands.
     prisma.mediaItem.findMany({ select: { tags: true } }),
     prisma.mediaAlbum.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.moduleAsset.findMany({ select: { id: true, moduleId: true, name: true }, orderBy: { order: "asc" } }),
   ]);
 
   const knownTags = [...new Set(tagRows.flatMap((r) => r.tags))].sort();
@@ -86,6 +88,8 @@ export default async function MediaPage(props: PageProps<"/media">) {
     assetId: r.assetId,
   }));
   const moduleOptions: ModuleOption[] = modules.map((m) => ({ id: m.id, label: moduleTitle(m) }));
+  const assetOptions: AssetOption[] = assetRows;
+  const initialAsset = assetParam ? assetOptions.find((a) => a.id === assetParam) : undefined;
   const filtered = Boolean(tag || moduleId || q);
 
   return (
@@ -154,7 +158,15 @@ export default async function MediaPage(props: PageProps<"/media">) {
         )}
       </form>
 
-      <MediaLibrary items={items} modules={moduleOptions} knownTags={knownTags} albums={albums} />
+      <MediaLibrary
+        key={assetParam || "default"}
+        items={items}
+        modules={moduleOptions}
+        assets={assetOptions}
+        knownTags={knownTags}
+        albums={albums}
+        initialAsset={initialAsset}
+      />
     </main>
   );
 }
