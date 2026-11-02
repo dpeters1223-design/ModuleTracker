@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { emailList } from "@/lib/activity";
-import { addDays, hourInZone, noonUtc, todayInZone } from "@/lib/dates";
+import { addDays, hourInZone, isWeekdayInZone, noonUtc, todayInZone } from "@/lib/dates";
 import { moduleTitle } from "@/lib/script-template";
 import { appUrl, postToSlackNow, slackEscape, slackIds } from "@/lib/slack";
 import { TEAM, buildOwnerIndex, isOwnedBy } from "@/lib/team";
@@ -296,6 +296,11 @@ export type DigestResult = {
  * cron route can surface it: a silent failure here would look like a quiet morning.
  */
 export async function sendDueDigest(): Promise<DigestResult> {
+  // Weekdays only — nobody's triaging tasks on a Saturday, and a Monday morning
+  // digest already covers whatever piled up over the weekend.
+  if (!isWeekdayInZone()) {
+    return { posted: false, skipped: "weekend", overdue: 0, today: 0, tomorrow: 0, people: 0, feedback: 0 };
+  }
   // Vercel crons are scheduled in UTC and Hobby fires anywhere within the hour, so
   // confirm it really is working hours here before pinging anyone.
   const hour = hourInZone();

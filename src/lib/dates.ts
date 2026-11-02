@@ -26,6 +26,12 @@ export function hourInZone(): number {
   );
 }
 
+/** True Monday-Friday in the app's time zone, false on Saturday/Sunday. */
+export function isWeekdayInZone(): boolean {
+  const day = new Intl.DateTimeFormat("en-US", { timeZone: appTimeZone(), weekday: "short" }).format(new Date());
+  return day !== "Sat" && day !== "Sun";
+}
+
 /** "2026-10-27" + 1 → "2026-10-28". Anchored at noon so no DST shift moves the day. */
 export function addDays(day: string, n: number): string {
   return new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
