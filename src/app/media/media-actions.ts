@@ -175,6 +175,37 @@ export async function updateMedia(id: string, input: MediaInput): Promise<MediaR
   return {};
 }
 
+/**
+ * Links an item already in the library to an asset, instead of uploading a new file
+ * or editing the item by hand. Moves it to the asset's own module too, same as the
+ * Asset picker in the edit form — if it was already linked elsewhere, this reassigns it.
+ */
+export async function attachExistingMedia(mediaId: string, assetId: string): Promise<MediaResult> {
+  const user = await requireUser();
+  const [before, asset] = await Promise.all([
+    prisma.mediaItem.findUnique({ where: { id: mediaId } }),
+    prisma.moduleAsset.findUnique({ where: { id: assetId }, select: { id: true, name: true, moduleId: true } }),
+  ]);
+  if (!before) return { errors: ["That item is no longer in the library."] };
+  if (!asset) return { errors: ["That asset no longer exists."] };
+
+  const after = await prisma.mediaItem.update({
+    where: { id: mediaId },
+    data: { assetId: asset.id, moduleId: asset.moduleId },
+  });
+  await logActivity(user, {
+    action: "mediaItem.edit",
+    summary: `Linked "${after.name}" to the asset "${asset.name}"`,
+    entityType: "mediaItem",
+    entityId: mediaId,
+    moduleId: after.moduleId,
+    before,
+    after,
+  });
+  changed();
+  return {};
+}
+
 /** Removes an item. The Drive file stays, so an undo can restore the row. */
 export async function removeMedia(id: string): Promise<MediaResult> {
   const user = await requireUser();

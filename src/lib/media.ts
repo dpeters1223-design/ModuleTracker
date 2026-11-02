@@ -134,6 +134,31 @@ export async function listAlbums(where: Prisma.MediaAlbumWhereInput = {}): Promi
   });
 }
 
+/**
+ * Every item's current album membership (by tag match or pin), the same way an
+ * album's own contents are worked out — so the main library grid can show which
+ * album(s) an item is already in, and leave those out of "Add to album".
+ */
+export async function mediaAlbumMembership(): Promise<Map<string, { id: string; name: string }[]>> {
+  const [albums, items] = await Promise.all([
+    prisma.mediaAlbum.findMany({ select: { id: true, name: true, tags: true, items: { select: { mediaId: true } } } }),
+    prisma.mediaItem.findMany({ select: { id: true, tags: true } }),
+  ]);
+
+  const byItem = new Map<string, { id: string; name: string }[]>();
+  for (const album of albums) {
+    for (const item of items) {
+      const pinned = album.items.some((i) => i.mediaId === item.id);
+      const matched = album.tags.length > 0 && item.tags.some((t) => album.tags.includes(t));
+      if (!pinned && !matched) continue;
+      const list = byItem.get(item.id) ?? [];
+      list.push({ id: album.id, name: album.name });
+      byItem.set(item.id, list);
+    }
+  }
+  return byItem;
+}
+
 /** One album with its contents, ready for the grid. Null if it's gone. */
 export async function getAlbum(id: string) {
   const album = await prisma.mediaAlbum.findUnique({

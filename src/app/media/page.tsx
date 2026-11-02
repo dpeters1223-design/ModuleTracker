@@ -7,7 +7,9 @@ import { requireUser } from "@/lib/session";
 import { dayInZone, timeInZone } from "@/lib/dates";
 import { dayLabel } from "@/lib/activity-feed";
 import { moduleTitle } from "@/lib/script-template";
-import { MediaLibrary, type AssetOption, type MediaRow, type MediaView, type ModuleOption } from "./media-library";
+import { mediaAlbumMembership } from "@/lib/media";
+import { parseView, ViewToggle, type GridView } from "@/components/view-toggle";
+import { MediaLibrary, type AssetOption, type MediaRow, type ModuleOption } from "./media-library";
 
 export const metadata: Metadata = { title: "Media library · ModuleTracker" };
 
@@ -28,7 +30,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
   const moduleId = one(params.module);
   const q = one(params.q).trim();
   const assetParam = one(params.asset);
-  const view: MediaView = one(params.view) === "small" || one(params.view) === "list" ? (one(params.view) as MediaView) : "large";
+  const view: GridView = parseView(one(params.view));
 
   const where: Prisma.MediaItemWhereInput = {
     ...(tag ? { tags: { has: tag } } : {}),
@@ -43,7 +45,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
       : {}),
   };
 
-  const [rows, modules, total, tagRows, albums, assetRows] = await Promise.all([
+  const [rows, modules, total, tagRows, albums, assetRows, membership] = await Promise.all([
     prisma.mediaItem.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -70,6 +72,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
     prisma.mediaItem.findMany({ select: { tags: true } }),
     prisma.mediaAlbum.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.moduleAsset.findMany({ select: { id: true, moduleId: true, name: true }, orderBy: { order: "asc" } }),
+    mediaAlbumMembership(),
   ]);
 
   const knownTags = [...new Set(tagRows.flatMap((r) => r.tags))].sort();
@@ -87,6 +90,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
     moduleLabel: r.module ? moduleTitle(r.module) : null,
     sceneId: r.sceneId,
     assetId: r.assetId,
+    albumsIn: membership.get(r.id) ?? [],
   }));
   const moduleOptions: ModuleOption[] = modules.map((m) => ({ id: m.id, label: moduleTitle(m) }));
   const assetOptions: AssetOption[] = assetRows;
@@ -94,7 +98,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
   const filtered = Boolean(tag || moduleId || q);
 
   // Keeps the current filters when switching views — only `view` itself changes.
-  const viewHref = (v: MediaView) => {
+  const viewHref = (v: GridView) => {
     const qs = new URLSearchParams();
     if (q) qs.set("q", q);
     if (tag) qs.set("tag", tag);
@@ -103,7 +107,6 @@ export default async function MediaPage(props: PageProps<"/media">) {
     const s = qs.toString();
     return `/media${s ? `?${s}` : ""}`;
   };
-  const VIEW_LABELS: Record<MediaView, string> = { large: "Large icons", small: "Small icons", list: "List" };
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -117,45 +120,7 @@ export default async function MediaPage(props: PageProps<"/media">) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-0.5 rounded-md border border-zinc-300 p-0.5 dark:border-zinc-600" role="group" aria-label="View">
-            {(["large", "small", "list"] as const).map((v) => (
-              <Link
-                key={v}
-                href={viewHref(v)}
-                aria-label={VIEW_LABELS[v]}
-                title={VIEW_LABELS[v]}
-                aria-current={view === v ? "true" : undefined}
-                className={`rounded px-2 py-1.5 ${
-                  view === v
-                    ? "bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
-                    : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                }`}
-              >
-                {v === "large" && (
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                    <rect x="3" y="3" width="8" height="8" rx="1" />
-                    <rect x="13" y="3" width="8" height="8" rx="1" />
-                    <rect x="3" y="13" width="8" height="8" rx="1" />
-                    <rect x="13" y="13" width="8" height="8" rx="1" />
-                  </svg>
-                )}
-                {v === "small" && (
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                    {[3, 9.75, 16.5].flatMap((x) =>
-                      [3, 9.75, 16.5].map((y) => <rect key={`${x}-${y}`} x={x} y={y} width="4.5" height="4.5" rx="0.8" />)
-                    )}
-                  </svg>
-                )}
-                {v === "list" && (
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                    <line x1="4" y1="6" x2="20" y2="6" />
-                    <line x1="4" y1="12" x2="20" y2="12" />
-                    <line x1="4" y1="18" x2="20" y2="18" />
-                  </svg>
-                )}
-              </Link>
-            ))}
-          </div>
+          <ViewToggle view={view} hrefFor={viewHref} />
           <Link
             href="/media/albums"
             className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"

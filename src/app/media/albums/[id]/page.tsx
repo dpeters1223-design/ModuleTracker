@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/session";
 import { getAlbum } from "@/lib/media";
 import { moduleTitle } from "@/lib/script-template";
 import { MediaTile, type AssetOption, type ModuleOption } from "../../media-library";
+import { parseView, ViewToggle, type GridView } from "@/components/view-toggle";
 
 export async function generateMetadata(props: PageProps<"/media/albums/[id]">): Promise<Metadata> {
   const { id } = await props.params;
@@ -19,6 +20,9 @@ export default async function AlbumPage(props: PageProps<"/media/albums/[id]">) 
   await connection();
   await requireUser();
   const { id } = await props.params;
+  const params = await props.searchParams;
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const view: GridView = parseView(one(params.view));
 
   const [album, modules, tagRows, assetRows] = await Promise.all([
     getAlbum(id),
@@ -32,45 +36,49 @@ export default async function AlbumPage(props: PageProps<"/media/albums/[id]">) 
   const moduleOptions: ModuleOption[] = modules.map((m) => ({ id: m.id, label: moduleTitle(m) }));
   const assetOptions: AssetOption[] = assetRows;
   const byTag = album.items.filter((i) => !i.pinned).length;
+  const viewHref = (v: GridView) => (v === "large" ? `/media/albums/${id}` : `/media/albums/${id}?view=${v}`);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-      <div className="mb-6">
-        <Link href="/media/albums" className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
-          ← Albums
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{album.name}</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          {album.items.length} item{album.items.length === 1 ? "" : "s"}
-          {byTag > 0 && ` · ${byTag} pulled in by tag`}
-          {album.moduleLabel && (
-            <>
-              {" · "}
-              <Link href={`/modules/${album.moduleId}`} className="hover:underline underline-offset-4">
-                {album.moduleLabel}
-              </Link>
-            </>
-          )}
-        </p>
-        {album.description && (
-          <p className="mt-2 max-w-prose text-sm whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
-            {album.description}
-          </p>
-        )}
-        {album.tags.length > 0 && (
-          <ul className="mt-3 flex flex-wrap gap-1.5">
-            {album.tags.map((t) => (
-              <li key={t}>
-                <Link
-                  href={`/media?tag=${encodeURIComponent(t)}`}
-                  className="block rounded-full bg-teal-light px-2.5 py-0.5 text-xs font-medium text-brand hover:underline dark:bg-teal/25 dark:text-teal-light"
-                >
-                  {t}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link href="/media/albums" className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+            ← Albums
+          </Link>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{album.name}</h1>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            {album.items.length} item{album.items.length === 1 ? "" : "s"}
+            {byTag > 0 && ` · ${byTag} pulled in by tag`}
+            {album.moduleLabel && (
+              <>
+                {" · "}
+                <Link href={`/modules/${album.moduleId}`} className="hover:underline underline-offset-4">
+                  {album.moduleLabel}
                 </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+              </>
+            )}
+          </p>
+          {album.description && (
+            <p className="mt-2 max-w-prose text-sm whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
+              {album.description}
+            </p>
+          )}
+          {album.tags.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-1.5">
+              {album.tags.map((t) => (
+                <li key={t}>
+                  <Link
+                    href={`/media?tag=${encodeURIComponent(t)}`}
+                    className="block rounded-full bg-teal-light px-2.5 py-0.5 text-xs font-medium text-brand hover:underline dark:bg-teal/25 dark:text-teal-light"
+                  >
+                    {t}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <ViewToggle view={view} hrefFor={viewHref} />
       </div>
 
       {album.items.length === 0 ? (
@@ -86,7 +94,15 @@ export default async function AlbumPage(props: PageProps<"/media/albums/[id]">) 
           </Link>
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <ul
+          className={
+            view === "list"
+              ? "divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950"
+              : view === "small"
+                ? "grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+                : "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
+          }
+        >
           {album.items.map((item) => (
             <MediaTile
               key={item.id}
@@ -95,6 +111,7 @@ export default async function AlbumPage(props: PageProps<"/media/albums/[id]">) 
               assets={assetOptions}
               knownTags={knownTags}
               album={{ id: album.id, pinned: item.pinned }}
+              view={view}
             />
           ))}
         </ul>

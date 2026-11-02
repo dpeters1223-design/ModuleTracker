@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   ACCEPT_ATTR,
@@ -12,6 +12,7 @@ import {
 } from "@/lib/attachments";
 import {
   addMediaLink,
+  attachExistingMedia,
   prepareMediaUpload,
   registerMedia,
   removeMedia,
@@ -20,6 +21,7 @@ import {
 } from "./media-actions";
 import { setAlbumPin } from "./album-actions";
 import { TagsInput } from "@/components/tags-input";
+import type { GridView } from "@/components/view-toggle";
 
 export type MediaRow = {
   id: string;
@@ -35,13 +37,15 @@ export type MediaRow = {
   moduleLabel: string | null;
   sceneId: string | null;
   assetId: string | null;
+  /** Albums this item already belongs to (by tag or by pin). Omitted where it's not worth computing. */
+  albumsIn?: { id: string; name: string }[];
 };
 
 export type ModuleOption = { id: string; label: string };
 export type AssetOption = { id: string; moduleId: string; name: string };
 export type AlbumOption = { id: string; name: string };
-/** Large icons (the original grid), small icons (denser), or a one-row-per-item list. */
-export type MediaView = "large" | "small" | "list";
+/** Kept as an alias so existing imports of `MediaView` don't need to change. */
+export type MediaView = GridView;
 /** Set on a tile shown inside an album, so it can say how the item got there. */
 export type AlbumContext = { id: string; pinned: boolean };
 
@@ -312,7 +316,28 @@ export function MediaTile({
     </div>
   );
 
-  const albumPicker = albums.length > 0 && (
+  // Albums this item is already in — by pin or by tag — so the picker only offers
+  // ones it isn't in yet, and the tile can say where it already lives. The album
+  // this tile is being shown inside of is left out: that's already obvious from
+  // "Take out of album" / "In by tag" right next to it.
+  const albumsIn = (item.albumsIn ?? []).filter((a) => a.id !== album?.id);
+  const albumsAvailable = albums.filter((a) => !albumsIn.some((x) => x.id === a.id));
+
+  const albumsInLine = albumsIn.length > 0 && (
+    <p className="text-xs text-zinc-500">
+      In:{" "}
+      {albumsIn.map((a, i) => (
+        <span key={a.id}>
+          {i > 0 && ", "}
+          <Link href={`/media/albums/${a.id}`} className="hover:underline">
+            {a.name}
+          </Link>
+        </span>
+      ))}
+    </p>
+  );
+
+  const albumPicker = albumsAvailable.length > 0 && (
     <select
       aria-label={`Add "${item.name}" to an album`}
       className="w-full rounded border border-zinc-300 bg-white px-1.5 py-1 text-xs text-zinc-600 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
@@ -326,7 +351,7 @@ export function MediaTile({
       }}
     >
       <option value="">Add to album…</option>
-      {albums.map((a) => (
+      {albumsAvailable.map((a) => (
         <option key={a.id} value={a.id}>
           {a.name}
         </option>
@@ -372,6 +397,7 @@ export function MediaTile({
                 )}
                 {item.addedBy && ` · ${item.addedBy}`}
               </p>
+              {albumsInLine}
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-3 sm:ml-auto">{actionsRow}</div>
             {albumPicker && <div className="w-full sm:w-44">{albumPicker}</div>}
@@ -397,6 +423,11 @@ export function MediaTile({
               <p className="truncate text-xs font-medium" title={item.name}>
                 {item.name}
               </p>
+              {albumsIn.length > 0 && (
+                <p className="truncate text-[10px] text-zinc-500" title={`In: ${albumsIn.map((a) => a.name).join(", ")}`}>
+                  In: {albumsIn.map((a) => a.name).join(", ")}
+                </p>
+              )}
               {actionsRow}
               {albumPicker}
             </>
@@ -445,6 +476,7 @@ export function MediaTile({
               )}
               {item.addedBy && ` · ${item.addedBy}`}
             </p>
+            {albumsInLine}
             {actionsRow}
             {albumPicker && <div className="mt-1">{albumPicker}</div>}
           </>
@@ -472,17 +504,24 @@ export function MediaLibrary({
   initialAsset?: AssetOption;
   view?: MediaView;
 }) {
-  const [adding, setAdding] = useState<"file" | "link" | null>(() => (initialAsset ? "file" : null));
+  // Arriving pre-filled for an asset no longer forces straight into "upload new" —
+  // there's now a real alternative (an existing item), so the choice is left visible.
+  const [adding, setAdding] = useState<"file" | "link" | "pick" | null>(null);
   const [form, setForm] = useState<MediaInput>(() =>
     initialAsset ? { ...blankInput(), moduleId: initialAsset.moduleId, assetId: initialAsset.id } : blankInput()
   );
   const [linkUrl, setLinkUrl] = useState("");
+  const [pickQuery, setPickQuery] = useState("");
   const [status, setStatus] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [pending, startTransition] = useTransition();
   const fileInput = useRef<HTMLInputElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const pickMatches = useMemo(() => {
+    const q = pickQuery.trim().toLowerCase();
+    return q ? items.filter((i) => i.name.toLowerCase().includes(q)) : items;
+  }, [items, pickQuery]);
   useEffect(() => {
     if (adding === "file") panel.current?.focus();
   }, [adding]);
@@ -529,6 +568,11 @@ export function MediaLibrary({
 
   return (
     <>
+      {initialAsset && adding === null && (
+        <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">
+          Adding media for <span className="font-medium text-zinc-900 dark:text-zinc-100">{initialAsset.name}</span>.
+        </p>
+      )}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {adding === null && (
           <>
@@ -538,6 +582,11 @@ export function MediaLibrary({
             <button type="button" className={secondaryBtn} onClick={() => setAdding("link")}>
               + Add a link
             </button>
+            {initialAsset && (
+              <button type="button" className={secondaryBtn} onClick={() => setAdding("pick")}>
+                Choose from library
+              </button>
+            )}
           </>
         )}
       </div>
@@ -650,6 +699,90 @@ export function MediaLibrary({
             </button>
           </div>
         </form>
+      )}
+
+      {adding === "pick" && initialAsset && (
+        <div className="mb-6 space-y-3 rounded-lg border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/50">
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Pick something already in the library to attach to{" "}
+            <span className="font-medium text-zinc-900 dark:text-zinc-100">{initialAsset.name}</span>.
+          </p>
+          {errors.length > 0 && (
+            <ul role="alert" className="list-disc pl-5 text-sm text-red-700 dark:text-red-400">
+              {errors.map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          )}
+          <input
+            aria-label="Search the library"
+            className={inputCls}
+            placeholder="Search by name…"
+            value={pickQuery}
+            onChange={(e) => setPickQuery(e.target.value)}
+            autoFocus
+          />
+          <ul className="max-h-96 divide-y divide-zinc-200 overflow-y-auto rounded-md border border-zinc-300 bg-white dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-950">
+            {(() => {
+              if (pickMatches.length === 0) {
+                return <li className="p-3 text-sm text-zinc-500">Nothing matches.</li>;
+              }
+              return pickMatches.map((i) => {
+                const pickImage = i.hasFile && isImageMime(i.mimeType ?? "");
+                const elsewhere = i.assetId && i.assetId !== initialAsset.id;
+                return (
+                  <li key={i.id} className="flex items-center gap-3 p-2">
+                    <span className="block h-10 w-10 shrink-0 overflow-hidden rounded border border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900">
+                      {pickImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- served by our own signed-in route
+                        <img src={`/api/media/${i.id}?thumb=1`} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-[9px] font-semibold tracking-wide text-zinc-500 uppercase">
+                          {i.url ? "Link" : fileKind(i.mimeType ?? "")}
+                        </span>
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm">{i.name}</p>
+                      <p className="truncate text-xs text-zinc-500">
+                        {elsewhere ? "Already linked to another asset" : (i.moduleLabel ?? "No module")}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className={secondaryBtn}
+                      disabled={pending}
+                      onClick={() => {
+                        if (elsewhere && !confirm(`"${i.name}" is already linked to another asset. Move it to ${initialAsset.name}?`)) {
+                          return;
+                        }
+                        startTransition(async () => {
+                          const res = await attachExistingMedia(i.id, initialAsset.id);
+                          if (res.errors?.length) return setErrors(res.errors);
+                          setErrors([]);
+                          setAdding(null);
+                        });
+                      }}
+                    >
+                      Attach
+                    </button>
+                  </li>
+                );
+              });
+            })()}
+          </ul>
+          <button
+            type="button"
+            className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+            disabled={pending}
+            onClick={() => {
+              setAdding(null);
+              setErrors([]);
+            }}
+          >
+            Cancel
+          </button>
+        </div>
       )}
 
       {items.length === 0 ? (

@@ -7,6 +7,7 @@ import type { ModuleOption } from "../media-library";
 import { createAlbum, deleteAlbum, updateAlbum, type AlbumInput } from "../album-actions";
 import { AlbumCoverMosaic } from "./album-cover";
 import { TagsInput } from "@/components/tags-input";
+import type { GridView } from "@/components/view-toggle";
 
 const inputCls =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 " +
@@ -91,10 +92,12 @@ function Card({
   album,
   modules,
   knownTags,
+  view = "large",
 }: {
   album: AlbumSummary;
   modules: ModuleOption[];
   knownTags: string[];
+  view?: GridView;
 }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<AlbumInput>({
@@ -106,6 +109,119 @@ function Card({
   const [errors, setErrors] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
+  const formBody = (
+    <form
+      className="space-y-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        startTransition(async () => {
+          const res = await updateAlbum(album.id, form);
+          if (res.errors?.length) return setErrors(res.errors);
+          setErrors([]);
+          setEditing(false);
+        });
+      }}
+    >
+      <Errors errors={errors} />
+      <Fields value={form} onChange={setForm} modules={modules} knownTags={knownTags} />
+      <div className="flex gap-2">
+        <button type="submit" className={primaryBtn} disabled={pending}>
+          {pending ? "Saving…" : "Save"}
+        </button>
+        <button type="button" className={secondaryBtn} disabled={pending} onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+
+  const actionsRow = (
+    <div className="flex gap-3 text-xs text-zinc-500">
+      <button type="button" className="hover:text-zinc-900 dark:hover:text-zinc-100" onClick={() => setEditing(true)}>
+        Edit
+      </button>
+      <button
+        type="button"
+        className="hover:text-red-700 dark:hover:text-red-400"
+        disabled={pending}
+        onClick={() => {
+          if (!confirm(`Delete the album "${album.name}"? The media in it stays in the library.`)) return;
+          startTransition(async () => {
+            await deleteAlbum(album.id);
+          });
+        }}
+      >
+        Delete
+      </button>
+    </div>
+  );
+
+  if (view === "list") {
+    return (
+      <li className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
+        {editing ? (
+          <div className="w-full">{formBody}</div>
+        ) : (
+          <>
+            <Link href={`/media/albums/${album.id}`} title={album.name} className="block shrink-0">
+              <AlbumCoverMosaic covers={album.covers} className="h-12 w-12 overflow-hidden rounded border border-zinc-300 dark:border-zinc-700" />
+            </Link>
+            <div className="min-w-0 flex-1">
+              <Link href={`/media/albums/${album.id}`} className="truncate text-sm font-medium hover:underline underline-offset-4">
+                {album.name}
+              </Link>
+              <p className="flex flex-wrap items-center gap-x-1 truncate text-xs text-zinc-500">
+                {album.count} item{album.count === 1 ? "" : "s"}
+                {album.matched > 0 && ` · ${album.matched} by tag`}
+                {album.moduleLabel && (
+                  <>
+                    {" · "}
+                    <Link href={`/modules/${album.moduleId}`} className="hover:underline underline-offset-4">
+                      {album.moduleLabel}
+                    </Link>
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-3 sm:ml-auto">{actionsRow}</div>
+          </>
+        )}
+      </li>
+    );
+  }
+
+  if (view === "small") {
+    return (
+      <li
+        className={`flex flex-col overflow-hidden rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950 ${
+          editing ? "col-span-2 row-span-2 sm:col-span-3" : ""
+        }`}
+      >
+        <Link href={`/media/albums/${album.id}`} title={album.name} className="block">
+          <AlbumCoverMosaic covers={album.covers} className="aspect-square" />
+        </Link>
+        <div className="flex flex-1 flex-col gap-1 p-2">
+          {editing ? (
+            formBody
+          ) : (
+            <>
+              <Link
+                href={`/media/albums/${album.id}`}
+                className="truncate text-xs font-medium hover:underline underline-offset-4"
+                title={album.name}
+              >
+                {album.name}
+              </Link>
+              <p className="text-[10px] text-zinc-500">{album.count} item{album.count === 1 ? "" : "s"}</p>
+              {actionsRow}
+            </>
+          )}
+        </div>
+      </li>
+    );
+  }
+
+  // Large icons: the original card, full detail.
   return (
     <li className="flex flex-col overflow-hidden rounded-lg border border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950">
       <Link href={`/media/albums/${album.id}`} title={album.name} className="block">
@@ -113,29 +229,7 @@ function Card({
       </Link>
       <div className="flex flex-1 flex-col gap-1.5 p-3">
         {editing ? (
-          <form
-            className="space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              startTransition(async () => {
-                const res = await updateAlbum(album.id, form);
-                if (res.errors?.length) return setErrors(res.errors);
-                setErrors([]);
-                setEditing(false);
-              });
-            }}
-          >
-            <Errors errors={errors} />
-            <Fields value={form} onChange={setForm} modules={modules} knownTags={knownTags} />
-            <div className="flex gap-2">
-              <button type="submit" className={primaryBtn} disabled={pending}>
-                {pending ? "Saving…" : "Save"}
-              </button>
-              <button type="button" className={secondaryBtn} disabled={pending} onClick={() => setEditing(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
+          formBody
         ) : (
           <>
             <Link href={`/media/albums/${album.id}`} className="text-sm font-medium break-words hover:underline underline-offset-4">
@@ -171,28 +265,7 @@ function Card({
                 "No module"
               )}
             </p>
-            <div className="flex gap-3 text-xs text-zinc-500">
-              <button
-                type="button"
-                className="hover:text-zinc-900 dark:hover:text-zinc-100"
-                onClick={() => setEditing(true)}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className="hover:text-red-700 dark:hover:text-red-400"
-                disabled={pending}
-                onClick={() => {
-                  if (!confirm(`Delete the album "${album.name}"? The media in it stays in the library.`)) return;
-                  startTransition(async () => {
-                    await deleteAlbum(album.id);
-                  });
-                }}
-              >
-                Delete
-              </button>
-            </div>
+            {actionsRow}
           </>
         )}
       </div>
@@ -204,10 +277,12 @@ export function AlbumGrid({
   albums,
   modules,
   knownTags,
+  view = "large",
 }: {
   albums: AlbumSummary[];
   modules: ModuleOption[];
   knownTags: string[];
+  view?: GridView;
 }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<AlbumInput>(blank());
@@ -266,9 +341,17 @@ export function AlbumGrid({
           </p>
         </div>
       ) : (
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <ul
+          className={
+            view === "list"
+              ? "divide-y divide-zinc-300 rounded-lg border border-zinc-300 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-950"
+              : view === "small"
+                ? "grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+                : "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
+          }
+        >
           {albums.map((a) => (
-            <Card key={a.id} album={a} modules={modules} knownTags={knownTags} />
+            <Card key={a.id} album={a} modules={modules} knownTags={knownTags} view={view} />
           ))}
         </ul>
       )}
