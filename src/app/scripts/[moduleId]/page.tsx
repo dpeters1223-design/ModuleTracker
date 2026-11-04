@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getModule } from "@/lib/modules";
-import { getScript } from "@/lib/scripts";
+import { getScript, getScriptDrafts } from "@/lib/scripts";
 import { moduleTitle } from "@/lib/script-template";
 import { ScriptPanel } from "@/components/script-panel";
 
@@ -9,7 +9,7 @@ export default async function ModuleScriptPage(props: PageProps<"/scripts/[modul
   const { moduleId } = await props.params;
   const mod = await getModule(moduleId);
   if (!mod) notFound();
-  const script = await getScript(mod.id);
+  const [script, drafts] = await Promise.all([getScript(mod.id), getScriptDrafts(mod.id)]);
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6">
@@ -32,7 +32,7 @@ export default async function ModuleScriptPage(props: PageProps<"/scripts/[modul
           · {mod.scenes.length} scene{mod.scenes.length === 1 ? "" : "s"} outlined
         </p>
       </header>
-      <ScriptPanel moduleId={mod.id} script={script} />
+      <ScriptPanel moduleId={mod.id} script={script} drafts={drafts} />
     </main>
   );
 }

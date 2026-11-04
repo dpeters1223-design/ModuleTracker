@@ -14,7 +14,7 @@ export const CHANGE_ORDER_STATUS_LABELS: Record<ChangeOrderStatus, string> = {
 export const CLOSED_CHANGE_ORDER_STATUSES: ChangeOrderStatus[] = ["completed", "deferred", "declined"];
 
 /** Document types for the per-module library (scripts are managed on the Scripts tab). */
-export const DOCUMENT_TYPE_LABELS: Record<Exclude<DocumentType, "script">, string> = {
+export const DOCUMENT_TYPE_LABELS: Record<Exclude<DocumentType, "script" | "script_draft">, string> = {
   storyboard: "Storyboard",
   rundown: "Rundown",
   shot_sheet: "Shot sheet",

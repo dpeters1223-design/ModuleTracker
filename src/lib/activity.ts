@@ -83,6 +83,14 @@ type UndoKind = "create" | "delete" | "update" | "discovery" | "moduleDelete" | 
 
 export function undoKind(action: string): UndoKind {
   if (action === "undo") return "none";
+  // script.draft.promote swaps two DocumentLink rows at once (the promoted draft
+  // and the script it replaces) — no single-row undo can express that. And a
+  // draft's own row can later BECOME the live script via promote, so undoing its
+  // original "create" (which deletes by bare id, no type check) could delete the
+  // live script out from under the module. Not undoable, either one.
+  if (action === "script.draft.promote" || action === "script.draft.start" || action === "script.draft.link") {
+    return "none";
+  }
   if (action === "discovery.update") return "discovery";
   if (action === "module.delete") return "moduleDelete";
   if (action === "assets.fromScenes") return "bulkCreate";

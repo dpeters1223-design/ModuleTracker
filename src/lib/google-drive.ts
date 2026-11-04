@@ -143,6 +143,24 @@ export async function createDocFromHtml(
   });
 }
 
+/**
+ * Makes a Drive-side copy of a file — only works for files this token can already
+ * see under drive.file scope (ones this app created or uploaded), not an arbitrary
+ * doc someone linked in from elsewhere. Throws DriveError either way; the caller
+ * decides how to explain that to whoever clicked the button.
+ */
+export async function copyFile(
+  token: string,
+  fileId: string,
+  opts: { name: string; parentId?: string }
+): Promise<DriveFile> {
+  return driveFetch(token, `${API}/files/${encodeURIComponent(fileId)}/copy?fields=id,name,webViewLink`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: opts.name, ...(opts.parentId ? { parents: [opts.parentId] } : {}) }),
+  });
+}
+
 /** Returns null when the file is gone or this app can't see it (drive.file scope). */
 export async function getFileMeta(token: string, fileId: string): Promise<DriveFileMeta | null> {
   try {

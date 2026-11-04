@@ -52,8 +52,10 @@ export async function addDocumentLink(
 /** Removes the link from the module. The document itself is untouched. */
 export async function removeDocumentLink(moduleId: string, linkId: string): Promise<DocumentResult> {
   const user = await requireUser();
-  // Scripts are unlinked from the Scripts tab, not here.
-  const link = await prisma.documentLink.findFirst({ where: { id: linkId, moduleId, type: { not: "script" } } });
+  // Scripts and drafts are managed from the Scripts tab, not here.
+  const link = await prisma.documentLink.findFirst({
+    where: { id: linkId, moduleId, type: { notIn: ["script", "script_draft"] } },
+  });
   if (!link) return {};
   await prisma.documentLink.delete({ where: { id: linkId } });
   await logActivity(user, {

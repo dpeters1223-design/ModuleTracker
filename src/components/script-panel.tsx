@@ -2,14 +2,18 @@
 
 import { useRef, useState, useTransition } from "react";
 import {
+  discardScriptDraft,
   linkExistingScript,
+  linkScriptDraft,
   prepareScriptUpload,
+  promoteScriptDraft,
   registerUploadedScript,
   startScript,
+  startScriptDraft,
   unlinkScript,
   type ScriptActionResult,
 } from "@/app/scripts/actions";
-import type { ScriptInfo } from "@/lib/scripts";
+import type { DraftInfo, ScriptInfo } from "@/lib/scripts";
 
 const GOOGLE_DOC_MIME = "application/vnd.google-apps.document";
 const btn =
@@ -47,12 +51,22 @@ async function uploadToDrive(
   return id;
 }
 
-export function ScriptPanel({ moduleId, script }: { moduleId: string; script: ScriptInfo | null }) {
+export function ScriptPanel({
+  moduleId,
+  script,
+  drafts,
+}: {
+  moduleId: string;
+  script: ScriptInfo | null;
+  drafts: DraftInfo[];
+}) {
   const [pending, startTransition] = useTransition();
   const [busyLabel, setBusyLabel] = useState("");
   const [result, setResult] = useState<ScriptActionResult>({});
   const [showLink, setShowLink] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [showDraftLink, setShowDraftLink] = useState(false);
+  const [draftLinkUrl, setDraftLinkUrl] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
   const act = (label: string, fn: () => Promise<ScriptActionResult>) => {
@@ -80,39 +94,152 @@ export function ScriptPanel({ moduleId, script }: { moduleId: string; script: Sc
       return { ...registered, warning: registered.warning ?? target.warning };
     });
 
+  const draftsSection = (
+    // Drafts render regardless of whether an official script currently exists —
+    // unlinking the script must not make existing drafts invisible/unmanageable.
+    <div className={`space-y-3 ${script ? "border-t border-zinc-200 pt-3 dark:border-zinc-800" : ""}`}>
+      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        Drafts
+        <span className="ml-1 font-normal text-zinc-400">— edit separately, promote when ready</span>
+      </p>
+
+      {drafts.length > 0 && (
+        <ul className="space-y-2">
+          {drafts.map((d) => (
+            <li
+              key={d.id}
+              className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/50"
+            >
+              <div className="min-w-0">
+                <a
+                  href={d.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-900 dark:hover:decoration-zinc-100"
+                >
+                  {d.label || "Draft"} ↗
+                </a>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {d.lastEdited
+                    ? `Last edited ${new Date(d.lastEdited).toLocaleString()}${d.lastEditedBy ? ` by ${d.lastEditedBy}` : ""}`
+                    : "Edit history isn't available for this link."}
+                  {d.addedBy && ` · started by ${d.addedBy}`}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-3 text-sm">
+                <button
+                  type="button"
+                  className="font-medium text-brand hover:underline dark:text-gold"
+                  disabled={pending}
+                  onClick={() => {
+                    const message = script
+                      ? `Make "${d.label ?? "this draft"}" the official script? The current script will be kept as a labeled draft, not deleted.`
+                      : `Make "${d.label ?? "this draft"}" the official script?`;
+                    if (confirm(message)) act("Promoting…", () => promoteScriptDraft(moduleId, d.id));
+                  }}
+                >
+                  Promote
+                </button>
+                <button
+                  type="button"
+                  className="text-zinc-500 hover:text-red-700 dark:hover:text-red-400"
+                  disabled={pending}
+                  onClick={() => {
+                    if (confirm(`Discard "${d.label ?? "this draft"}"? The Drive file itself won't be deleted.`)) {
+                      act("Discarding…", () => discardScriptDraft(moduleId, d.id));
+                    }
+                  }}
+                >
+                  Discard
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {script && (
+          <button
+            type="button"
+            className={secondaryBtn}
+            disabled={pending}
+            onClick={() => act("Copying in Drive…", () => startScriptDraft(moduleId))}
+          >
+            + Start a draft
+          </button>
+        )}
+        <button type="button" className={secondaryBtn} disabled={pending} onClick={() => setShowDraftLink((v) => !v)}>
+          Link a draft
+        </button>
+      </div>
+      {showDraftLink && (
+        <form
+          className="flex flex-wrap gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            act("Linking…", async () => {
+              const res = await linkScriptDraft(moduleId, draftLinkUrl);
+              if (!res.error) {
+                setDraftLinkUrl("");
+                setShowDraftLink(false);
+              }
+              return res;
+            });
+          }}
+        >
+          <input
+            className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900"
+            type="url"
+            required
+            placeholder="https://docs.google.com/document/d/… (a copy you made yourself)"
+            value={draftLinkUrl}
+            onChange={(e) => setDraftLinkUrl(e.target.value)}
+          />
+          <button type="submit" className={secondaryBtn} disabled={pending}>
+            Save link
+          </button>
+        </form>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-3 rounded-lg border border-zinc-300 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-950">
       {script ? (
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <a
-              href={script.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-900 dark:hover:decoration-zinc-100"
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <a
+                href={script.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-900 dark:hover:decoration-zinc-100"
+              >
+                {script.label || "Script"} ↗
+              </a>
+              <p className="mt-0.5 text-sm text-zinc-500">
+                {script.lastEdited
+                  ? `Last edited ${new Date(script.lastEdited).toLocaleString()}${
+                      script.lastEditedBy ? ` by ${script.lastEditedBy}` : ""
+                    }`
+                  : "Edit history isn't available for this link."}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+              disabled={pending}
+              onClick={() => {
+                if (confirm("Unlink this script from the module? The document itself is not deleted."))
+                  act("Unlinking…", () => unlinkScript(moduleId, script.id));
+              }}
             >
-              {script.label || "Script"} ↗
-            </a>
-            <p className="mt-0.5 text-sm text-zinc-500">
-              {script.lastEdited
-                ? `Last edited ${new Date(script.lastEdited).toLocaleString()}${
-                    script.lastEditedBy ? ` by ${script.lastEditedBy}` : ""
-                  }`
-                : "Edit history isn't available for this link."}
-            </p>
+              Unlink
+            </button>
           </div>
-          <button
-            type="button"
-            className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
-            disabled={pending}
-            onClick={() => {
-              if (confirm("Unlink this script from the module? The document itself is not deleted."))
-                act("Unlinking…", () => unlinkScript(moduleId, script.id));
-            }}
-          >
-            Unlink
-          </button>
-        </div>
+          {draftsSection}
+        </>
       ) : (
         <>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -177,6 +304,7 @@ export function ScriptPanel({ moduleId, script }: { moduleId: string; script: Sc
               </button>
             </form>
           )}
+          {draftsSection}
         </>
       )}
 

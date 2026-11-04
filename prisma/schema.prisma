@@ -23,6 +23,10 @@ enum ModuleStatus {
 enum DocumentType {
   storyboard
   script
+  /// A copy of the script being edited separately from the official one. Promoting
+  /// it swaps it in as `script`; the one it replaces becomes a script_draft itself,
+  /// so nothing is ever silently lost.
+  script_draft
   rundown
   shot_sheet
   questions

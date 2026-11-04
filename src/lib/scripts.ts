@@ -52,3 +52,29 @@ export async function getScripts(moduleIds: string[]): Promise<Map<string, Scrip
 export async function getScript(moduleId: string): Promise<ScriptInfo | null> {
   return (await getScripts([moduleId])).get(moduleId) ?? null;
 }
+
+export type DraftInfo = ScriptInfo & { addedBy: string | null };
+
+/** This module's draft scripts — copies someone's editing separately, not yet promoted. */
+export async function getScriptDrafts(moduleId: string): Promise<DraftInfo[]> {
+  const links = await prisma.documentLink.findMany({
+    where: { moduleId, type: "script_draft" },
+    orderBy: { addedAt: "desc" },
+    include: { addedBy: { select: { name: true, email: true } } },
+  });
+  const token = links.some((l) => l.driveFileId) ? await getDriveOwnerToken().catch(() => null) : null;
+
+  return Promise.all(
+    links.map(async (link) => {
+      const meta = token && link.driveFileId ? await getFileMeta(token, link.driveFileId) : null;
+      return {
+        id: link.id,
+        url: link.url,
+        label: meta?.name ?? link.label,
+        lastEdited: meta?.modifiedTime ?? null,
+        lastEditedBy: meta?.lastModifyingUser?.displayName ?? null,
+        addedBy: link.addedBy?.name ?? link.addedBy?.email ?? null,
+      };
+    })
+  );
+}

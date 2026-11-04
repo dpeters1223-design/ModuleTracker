@@ -70,7 +70,8 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
       orderBy: { owner: "asc" },
     }),
     prisma.documentLink.findMany({
-      where: { moduleId: mod.id, type: { not: "script" } },
+      // Scripts and their drafts have their own tab; this is everything else.
+      where: { moduleId: mod.id, type: { notIn: ["script", "script_draft"] } },
       include: { addedBy: { select: { name: true, email: true } } },
       orderBy: { addedAt: "asc" },
     }),
