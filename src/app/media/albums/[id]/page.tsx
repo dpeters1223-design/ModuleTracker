@@ -110,7 +110,7 @@ export default async function AlbumPage(props: PageProps<"/media/albums/[id]">) 
               modules={moduleOptions}
               assets={assetOptions}
               knownTags={knownTags}
-              album={{ id: album.id, pinned: item.pinned }}
+              album={{ id: album.id, pinned: item.pinned, needsReview: album.needsReview }}
               view={view}
             />
           ))}

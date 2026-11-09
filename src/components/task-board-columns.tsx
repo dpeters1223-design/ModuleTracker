@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import Link from "next/link";
 import {
   DndContext,
   DragOverlay,
@@ -49,7 +50,9 @@ function CardBody({ task, today }: { task: BoardTask; today: string }) {
   return (
     <>
       <p className={`text-sm ${task.status === "completed" ? "text-zinc-400 line-through" : "font-medium"}`}>
-        {task.title}
+        <Link href={`/modules/${task.moduleId}/tasks/${task.id}`} className="hover:underline" {...noDrag}>
+          {task.title}
+        </Link>
       </p>
       {(task.owner || task.due) && (
         <p className="text-xs text-zinc-500">

@@ -6,6 +6,7 @@ import type { AssetStatus } from "@prisma/client";
 import { ASSET_TYPE_LABELS, ASSET_TYPES, isInHand } from "@/lib/assets";
 import { fileKind, isImageMime } from "@/lib/attachments";
 import { AttachImagePanel, TaskImages, type TaskImage } from "@/components/task-images";
+import { OwnerPicker } from "@/components/owner-picker";
 import {
   addAssetsFromScenes,
   createAsset,
@@ -157,7 +158,7 @@ function AssetForm({
         </label>
         <label className="space-y-1 text-xs text-zinc-500">
           Who&apos;s providing it
-          <input className={inputCls} list="asset-owner-options" value={form.owner} onChange={(e) => set("owner", e.target.value)} />
+          <OwnerPicker value={form.owner} onChange={(v) => set("owner", v)} owners={owners} />
         </label>
         <label className="space-y-1 text-xs text-zinc-500 sm:col-span-2">
           Link (optional: Drive, Box, a video…)
@@ -170,11 +171,6 @@ function AssetForm({
         value={form.notes}
         onChange={(e) => set("notes", e.target.value)}
       />
-      <datalist id="asset-owner-options">
-        {owners.map((o) => (
-          <option key={o} value={o} />
-        ))}
-      </datalist>
       <div className="flex gap-2">
         <button type="submit" className={primaryBtn} disabled={pending}>
           {pending ? "Saving…" : submitLabel}

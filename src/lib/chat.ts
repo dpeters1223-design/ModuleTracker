@@ -82,6 +82,35 @@ export async function getOrCreateTeamChannel() {
   });
 }
 
+/**
+ * The 1:1 DM between two people, reusing whichever one already exists between
+ * exactly those two members rather than creating a new channel every time —
+ * unlike `createChannel` (chat-actions.ts), which always makes a fresh one for
+ * a person starting a chat by hand. Used to deliver an @mention (see
+ * src/lib/mentions.ts) to someone who doesn't use Slack, into the chat they
+ * already have open in the app.
+ */
+export async function getOrCreateDirectChannel(userIdA: string, userIdB: string) {
+  if (userIdA === userIdB) throw new Error("Can't DM yourself.");
+  const existing = await prisma.chatChannel.findFirst({
+    where: {
+      kind: "group",
+      members: { every: { userId: { in: [userIdA, userIdB] } } },
+      AND: [{ members: { some: { userId: userIdA } } }, { members: { some: { userId: userIdB } } }],
+    },
+    include: { _count: { select: { members: true } } },
+  });
+  if (existing && existing._count.members === 2) return existing;
+
+  return prisma.$transaction(async (tx) => {
+    const created = await tx.chatChannel.create({ data: { kind: "group", createdById: userIdA } });
+    await tx.chatChannelMember.createMany({
+      data: [userIdA, userIdB].map((userId) => ({ channelId: created.id, userId })),
+    });
+    return created;
+  });
+}
+
 /** What the chat settings panel shows: the person's choices plus the Google defaults behind them. */
 export type ChatProfileSettings = {
   nickname: string;

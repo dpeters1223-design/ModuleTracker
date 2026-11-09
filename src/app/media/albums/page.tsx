@@ -18,15 +18,22 @@ export default async function AlbumsPage(props: PageProps<"/media/albums">) {
   const params = await props.searchParams;
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
   const view: GridView = parseView(one(params.view));
+  const reviewOnly = one(params.review) === "1";
 
-  const [albums, modules, tagRows] = await Promise.all([
+  const [allAlbums, modules, tagRows] = await Promise.all([
     listAlbums(),
     prisma.module.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, number: true, name: true } }),
     prisma.mediaItem.findMany({ select: { tags: true } }),
   ]);
+  const needingReview = allAlbums.filter((a) => a.needsReview && a.reviewCounts.pending > 0);
+  const albums = reviewOnly ? needingReview : allAlbums;
   const knownTags = [...new Set(tagRows.flatMap((r) => r.tags))].sort();
   const moduleOptions: ModuleOption[] = modules.map((m) => ({ id: m.id, label: moduleTitle(m) }));
-  const viewHref = (v: GridView) => (v === "large" ? "/media/albums" : `/media/albums?view=${v}`);
+  const viewParam = (v: GridView) => (v === "large" ? "" : `view=${v}`);
+  const viewHref = (v: GridView) => {
+    const qs = [viewParam(v), reviewOnly ? "review=1" : ""].filter(Boolean).join("&");
+    return qs ? `/media/albums?${qs}` : "/media/albums";
+  };
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -39,6 +46,18 @@ export default async function AlbumsPage(props: PageProps<"/media/albums">) {
           <p className="text-zinc-600 dark:text-zinc-400">
             {albums.length} album{albums.length === 1 ? "" : "s"} · a set of media the team looks at together
           </p>
+          {needingReview.length > 0 && (
+            <Link
+              href={reviewOnly ? "/media/albums" : `/media/albums?review=1${view !== "large" ? `&view=${view}` : ""}`}
+              className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide uppercase ${
+                reviewOnly
+                  ? "bg-amber-600 text-white dark:bg-amber-500 dark:text-zinc-950"
+                  : "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/70"
+              }`}
+            >
+              {reviewOnly ? "Showing: needs review — clear" : `${needingReview.length} album${needingReview.length === 1 ? "" : "s"} need review`}
+            </Link>
+          )}
         </div>
         <ViewToggle view={view} hrefFor={viewHref} />
       </div>

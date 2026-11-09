@@ -90,6 +90,14 @@ enum ChatChannelKind {
   group
 }
 
+/// Where a media item stands in Tom's review of an album flagged `needsReview`.
+/// A row only exists once someone has looked at the item; absent means pending.
+enum MediaReviewStatus {
+  pending
+  approved
+  changes_requested
+}
+
 /// How much a channel should count towards someone's unread badge.
 /// "mentions" behaves like "none" until @-mentions are built.
 enum ChatNotifyLevel {
@@ -123,6 +131,8 @@ model User {
   playthroughFeedback    PlaythroughFeedback[]
   mediaItemsAdded        MediaItem[]
   mediaAlbumsCreated     MediaAlbum[]
+  taskComments           TaskComment[]
+  mediaReviews           MediaReview[]
 
   @@map("users")
 }
@@ -266,9 +276,33 @@ model Task {
   subtasks    Task[]                @relation("Subtasks")
   attachments TaskAttachment[]
   feedback    PlaythroughFeedback[]
+  comments    TaskComment[]
 
   @@index([parentId])
   @@map("tasks")
+}
+
+/**
+ * A comment on a task, with optional @mentions (parsed from `body` at write time —
+ * see src/lib/mentions.ts) that ping the mentioned person on Slack. Unlike
+ * PlaythroughFeedback this is for any task, not just playthroughs: a quick "how's
+ * this going?" on something overdue.
+ */
+model TaskComment {
+  id         String   @id @default(cuid())
+  taskId     String
+  authorId   String?
+  /// Snapshot, so a comment still says who wrote it if the user is ever removed.
+  authorName String?
+  body       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  task   Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@map("task_comments")
 }
 
 /// An image attached to a task or sub-task. The file lives in the Drive owner's
@@ -358,6 +392,7 @@ model MediaItem {
   asset   ModuleAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
   addedBy User?        @relation(fields: [addedById], references: [id], onDelete: SetNull)
   albums  MediaAlbumItem[]
+  reviews MediaReview[]
 
   @@index([moduleId])
   @@index([assetId])
@@ -385,13 +420,41 @@ model MediaAlbum {
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  /// Flags this album as a review set (e.g. for Tom to check): items in it get a
+  /// pending/approved/changes-requested control instead of just edit/remove.
+  needsReview Boolean  @default(false)
 
   module    Module?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   createdBy User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
   items     MediaAlbumItem[]
+  reviews   MediaReview[]
 
   @@index([moduleId])
   @@map("media_albums")
+}
+
+/**
+ * One person's review of one media item within one album. Keyed on the pair rather
+ * than living on MediaAlbumItem because a tag-matched item (see MediaAlbumItem's
+ * comment) has no row there at all — a review can still apply to it. Absent means
+ * pending; only existing rows (approved / changes_requested) are stored.
+ */
+model MediaReview {
+  id           String            @id @default(cuid())
+  albumId      String
+  mediaId      String
+  status       MediaReviewStatus @default(pending)
+  note         String?
+  reviewedById String?
+  reviewedAt   DateTime          @updatedAt
+
+  album      MediaAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  media      MediaItem  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  reviewedBy User?      @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([albumId, mediaId])
+  @@index([mediaId])
+  @@map("media_reviews")
 }
 
 /// One hand-pinned item in an album. Tag-matched items are not stored here — they

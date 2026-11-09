@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { TASK_PHASE_LABELS, TASK_STATUS_LABELS } from "@/lib/labels";
 import { TaskStatusSelect } from "@/components/task-status";
 import { PhaseDot } from "@/components/phase-dot";
+import { OwnerPicker } from "@/components/owner-picker";
 import { AttachImagePanel, TaskImages, type TaskImage } from "@/components/task-images";
 import { formatDay as fmt, TASK_STATUSES as STATUSES } from "@/lib/task-format";
 import { createTask, deleteTask, updateTask, type TaskInput, type TaskResult } from "./task-actions";
@@ -93,12 +95,7 @@ export function TaskForm({
         )}
         <label className="space-y-1 text-xs text-zinc-500">
           Owner
-          <input
-            className={inputCls}
-            list="task-owner-options"
-            value={form.owner}
-            onChange={(e) => set("owner", e.target.value)}
-          />
+          <OwnerPicker value={form.owner} onChange={(v) => set("owner", v)} owners={owners} />
         </label>
         <label className="space-y-1 text-xs text-zinc-500">
           Status
@@ -149,11 +146,6 @@ export function TaskForm({
           </span>
         </span>
       </label>
-      <datalist id="task-owner-options">
-        {owners.map((o) => (
-          <option key={o} value={o} />
-        ))}
-      </datalist>
       <div className="flex gap-2">
         <button type="submit" className={primaryBtn} disabled={pending}>
           {pending ? "Saving…" : submitLabel}
@@ -193,7 +185,9 @@ function TaskLine({
       <TaskStatusSelect moduleId={moduleId} taskId={task.id} title={task.title} status={task.status} />
       <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
         <p className={`text-sm ${task.status === "completed" ? "text-zinc-400 line-through" : "font-medium"}`}>
-          {task.title}
+          <Link href={`/modules/${moduleId}/tasks/${task.id}`} className="hover:underline">
+            {task.title}
+          </Link>
         </p>
         <p className="text-xs text-zinc-500">
           {[
@@ -215,7 +209,9 @@ function TaskLine({
         {waitingOn && (
           <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300">
             Waiting on {waitingOn.owner ? `${waitingOn.owner}: ` : ""}
-            {waitingOn.title}
+            <Link href={`/modules/${moduleId}/tasks/${waitingOn.id}`} className="hover:underline">
+              {waitingOn.title}
+            </Link>
             {waitingOn.dueDate && ` (due ${fmt(waitingOn.dueDate, today)})`}
           </p>
         )}

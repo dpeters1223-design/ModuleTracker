@@ -243,7 +243,9 @@ export async function TasksView({
                     <TaskStatusSelect moduleId={t.moduleId} taskId={t.id} title={t.title} status={t.status} />
                     <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
                       <p className={`text-sm ${t.status === "completed" ? "text-zinc-400 line-through" : "font-medium"}`}>
-                        {t.title}
+                        <Link href={`/modules/${t.module.id}/tasks/${t.id}`} className="hover:underline">
+                          {t.title}
+                        </Link>
                       </p>
                       {t.parent && <p className="text-xs text-zinc-500">↳ Sub-task of {t.parent.title}</p>}
                       <p className="text-xs text-zinc-500">

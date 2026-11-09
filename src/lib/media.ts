@@ -73,6 +73,9 @@ export type AlbumSummary = {
   matched: number;
   count: number;
   covers: AlbumCover[];
+  needsReview: boolean;
+  /** Only meaningful when needsReview — items with no explicit review are pending. */
+  reviewCounts: { pending: number; approved: number; changesRequested: number };
 };
 
 const ALBUM_SELECT = {
@@ -81,6 +84,7 @@ const ALBUM_SELECT = {
   description: true,
   tags: true,
   moduleId: true,
+  needsReview: true,
   module: { select: { number: true, name: true } },
   items: { select: { mediaId: true }, orderBy: { order: "asc" } },
 } satisfies Prisma.MediaAlbumSelect;
@@ -105,17 +109,21 @@ function members<T extends { id: string; tags: string[] }>(
  * list on /media makes, and fine at a few hundred items. Revisit past a few thousand.
  */
 export async function listAlbums(where: Prisma.MediaAlbumWhereInput = {}): Promise<AlbumSummary[]> {
-  const [albums, all] = await Promise.all([
+  const [albums, all, reviews] = await Promise.all([
     prisma.mediaAlbum.findMany({ where, orderBy: { name: "asc" }, select: ALBUM_SELECT }),
     prisma.mediaItem.findMany({
       orderBy: { createdAt: "desc" },
       select: { id: true, tags: true, mimeType: true, driveFileId: true },
     }),
+    prisma.mediaReview.findMany({ select: { albumId: true, mediaId: true, status: true } }),
   ]);
 
   return albums.map((a) => {
     const items = members(a, all);
     const pinned = a.items.filter((i) => all.some((m) => m.id === i.mediaId)).length;
+    const albumReviews = new Map(reviews.filter((r) => r.albumId === a.id).map((r) => [r.mediaId, r.status]));
+    const approved = items.filter((m) => albumReviews.get(m.id) === "approved").length;
+    const changesRequested = items.filter((m) => albumReviews.get(m.id) === "changes_requested").length;
     return {
       id: a.id,
       name: a.name,
@@ -130,6 +138,8 @@ export async function listAlbums(where: Prisma.MediaAlbumWhereInput = {}): Promi
         id: m.id,
         isImage: Boolean(m.driveFileId) && isImageMime(m.mimeType ?? ""),
       })),
+      needsReview: a.needsReview,
+      reviewCounts: { pending: items.length - approved - changesRequested, approved, changesRequested },
     };
   });
 }
@@ -166,16 +176,25 @@ export async function getAlbum(id: string) {
     select: { ...ALBUM_SELECT, createdBy: { select: { name: true, email: true } } },
   });
   if (!album) return null;
-  const all = await prisma.mediaItem.findMany({
-    orderBy: { createdAt: "desc" },
-    select: MEDIA_ROW_SELECT,
-  });
+  const [all, reviews] = await Promise.all([
+    prisma.mediaItem.findMany({ orderBy: { createdAt: "desc" }, select: MEDIA_ROW_SELECT }),
+    album.needsReview
+      ? prisma.mediaReview.findMany({ where: { albumId: id }, select: { mediaId: true, status: true, note: true } })
+      : Promise.resolve([]),
+  ]);
   const items = members(album, all);
   const pins = new Set(album.items.map((i) => i.mediaId));
+  const reviewByMedia = new Map(reviews.map((r) => [r.mediaId, r]));
   return {
     ...album,
     moduleLabel: album.module ? moduleTitle(album.module) : null,
     addedBy: album.createdBy?.name ?? album.createdBy?.email ?? null,
-    items: items.map((m) => ({ ...toMediaRow(m), pinned: pins.has(m.id) })),
+    items: items.map((m) => ({
+      ...toMediaRow(m),
+      pinned: pins.has(m.id),
+      review: album.needsReview
+        ? { status: reviewByMedia.get(m.id)?.status ?? "pending", note: reviewByMedia.get(m.id)?.note ?? null }
+        : null,
+    })),
   };
 }

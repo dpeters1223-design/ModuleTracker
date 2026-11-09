@@ -19,7 +19,8 @@ import {
   updateMedia,
   type MediaInput,
 } from "./media-actions";
-import { setAlbumPin } from "./album-actions";
+import { setAlbumPin, setMediaReview } from "./album-actions";
+import type { MediaReviewStatus } from "@prisma/client";
 import { TagsInput } from "@/components/tags-input";
 import type { GridView } from "@/components/view-toggle";
 
@@ -39,6 +40,8 @@ export type MediaRow = {
   assetId: string | null;
   /** Albums this item already belongs to (by tag or by pin). Omitted where it's not worth computing. */
   albumsIn?: { id: string; name: string }[];
+  /** This item's review state within the album it's being shown inside (see `album`). */
+  review?: { status: MediaReviewStatus; note: string | null } | null;
 };
 
 export type ModuleOption = { id: string; label: string };
@@ -47,7 +50,108 @@ export type AlbumOption = { id: string; name: string };
 /** Kept as an alias so existing imports of `MediaView` don't need to change. */
 export type MediaView = GridView;
 /** Set on a tile shown inside an album, so it can say how the item got there. */
-export type AlbumContext = { id: string; pinned: boolean };
+export type AlbumContext = { id: string; pinned: boolean; needsReview?: boolean };
+
+const REVIEW_STATUS_LABELS: Record<MediaReviewStatus, string> = {
+  pending: "Pending",
+  approved: "Approved",
+  changes_requested: "Needs changes",
+};
+
+/** The Approved / Needs changes control shown on a tile inside a review album. */
+function ReviewControl({ albumId, item }: { albumId: string; item: MediaRow }) {
+  const current = item.review?.status ?? "pending";
+  const [status, setStatus] = useState<MediaReviewStatus>(current);
+  const [note, setNote] = useState(item.review?.note ?? "");
+  const [editingNote, setEditingNote] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [pending, startTransition] = useTransition();
+
+  const save = (nextStatus: MediaReviewStatus, nextNote: string) => {
+    startTransition(async () => {
+      const res = await setMediaReview(albumId, item.id, nextStatus, nextNote);
+      if (res.errors?.length) return setErrors(res.errors);
+      setErrors([]);
+      setEditingNote(false);
+    });
+  };
+
+  const badgeCls: Record<MediaReviewStatus, string> = {
+    pending: "border-zinc-300 text-zinc-600 dark:border-zinc-600 dark:text-zinc-300",
+    approved: "border-green-300 text-green-700 dark:border-green-800 dark:text-green-400",
+    changes_requested: "border-amber-300 text-amber-800 dark:border-amber-800 dark:text-amber-400",
+  };
+
+  return (
+    <div className="space-y-1">
+      <select
+        aria-label={`Review status for "${item.name}"`}
+        className={`w-full rounded border bg-white px-1.5 py-1 text-xs font-medium dark:bg-zinc-900 ${badgeCls[status]}`}
+        value={status}
+        disabled={pending}
+        onChange={(e) => {
+          const next = e.target.value as MediaReviewStatus;
+          setStatus(next);
+          if (next === "changes_requested") {
+            setEditingNote(true);
+            return; // wait for the required note before saving
+          }
+          save(next, note);
+        }}
+      >
+        {(Object.keys(REVIEW_STATUS_LABELS) as MediaReviewStatus[]).map((s) => (
+          <option key={s} value={s}>
+            {REVIEW_STATUS_LABELS[s]}
+          </option>
+        ))}
+      </select>
+      {item.review?.note && !editingNote && (
+        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+          “{item.review.note}”{" "}
+          <button type="button" className="text-zinc-500 underline hover:text-zinc-900 dark:hover:text-zinc-100" onClick={() => setEditingNote(true)}>
+            Edit
+          </button>
+        </p>
+      )}
+      {editingNote && (
+        <div className="space-y-1">
+          {errors.length > 0 && <p className="text-xs text-red-700 dark:text-red-400">{errors[0]}</p>}
+          <textarea
+            aria-label={`Note on "${item.name}"`}
+            className="w-full rounded border border-zinc-300 bg-white px-1.5 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-900"
+            placeholder="What needs to change? (mention @Name to ping them)"
+            value={note}
+            autoFocus
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="text-xs font-medium text-brand hover:underline dark:text-gold"
+              disabled={pending}
+              onClick={() => save(status, note)}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+              disabled={pending}
+              onClick={() => {
+                setEditingNote(false);
+                setStatus(current);
+                setNote(item.review?.note ?? "");
+                setErrors([]);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const inputCls =
   "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 " +
@@ -398,6 +502,7 @@ export function MediaTile({
                 {item.addedBy && ` · ${item.addedBy}`}
               </p>
               {albumsInLine}
+              {album?.needsReview && <ReviewControl albumId={album.id} item={item} />}
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-3 sm:ml-auto">{actionsRow}</div>
             {albumPicker && <div className="w-full sm:w-44">{albumPicker}</div>}
@@ -428,6 +533,7 @@ export function MediaTile({
                   In: {albumsIn.map((a) => a.name).join(", ")}
                 </p>
               )}
+              {album?.needsReview && <ReviewControl albumId={album.id} item={item} />}
               {actionsRow}
               {albumPicker}
             </>
@@ -477,6 +583,7 @@ export function MediaTile({
               {item.addedBy && ` · ${item.addedBy}`}
             </p>
             {albumsInLine}
+            {album?.needsReview && <ReviewControl albumId={album.id} item={item} />}
             {actionsRow}
             {albumPicker && <div className="mt-1">{albumPicker}</div>}
           </>

@@ -17,7 +17,7 @@ const btn = "rounded-md px-3 py-1.5 text-sm font-medium transition disabled:curs
 const primaryBtn = `${btn} bg-brand text-white hover:bg-brand-hover dark:bg-gold dark:text-brand dark:hover:bg-gold-dark`;
 const secondaryBtn = `${btn} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800`;
 
-const blank = (): AlbumInput => ({ name: "", description: "", tags: [], moduleId: "" });
+const blank = (): AlbumInput => ({ name: "", description: "", tags: [], moduleId: "", needsReview: false });
 
 /** Name, tag rule and module — the whole of an album besides what's pinned into it. */
 function Fields({
@@ -25,11 +25,18 @@ function Fields({
   onChange,
   modules,
   knownTags,
+  reviewNote,
+  onReviewNote,
+  /** Show the reviewer note box — only worth asking for while this would send a ping. */
+  showReviewNote,
 }: {
   value: AlbumInput;
   onChange: (v: AlbumInput) => void;
   modules: ModuleOption[];
   knownTags: string[];
+  reviewNote?: string;
+  onReviewNote?: (v: string) => void;
+  showReviewNote?: boolean;
 }) {
   const set = <K extends keyof AlbumInput>(k: K, v: AlbumInput[K]) => onChange({ ...value, [k]: v });
   return (
@@ -73,6 +80,29 @@ function Fields({
           </option>
         ))}
       </select>
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={value.needsReview}
+          onChange={(e) => set("needsReview", e.target.checked)}
+        />
+        <span>
+          Needs review
+          <span className="block text-xs text-zinc-500">
+            Each item gets an Approved / Needs changes control instead of just edit/remove.
+          </span>
+        </span>
+      </label>
+      {showReviewNote && (
+        <textarea
+          aria-label="Note for the reviewer"
+          className={`${inputCls} min-h-16`}
+          placeholder="Note for the reviewer (optional) — @Tom Pennell can you check these?"
+          value={reviewNote}
+          onChange={(e) => onReviewNote?.(e.target.value)}
+        />
+      )}
     </div>
   );
 }
@@ -85,6 +115,17 @@ function Errors({ errors }: { errors: string[] }) {
         <li key={e}>{e}</li>
       ))}
     </ul>
+  );
+}
+
+/** "Needs review" badge with how many items are still pending, when there are any. */
+function ReviewBadge({ album }: { album: AlbumSummary }) {
+  if (!album.needsReview) return null;
+  const { pending } = album.reviewCounts;
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-800 uppercase dark:bg-amber-900/40 dark:text-amber-300">
+      {pending > 0 ? `${pending} to review` : "Reviewed"}
+    </span>
   );
 }
 
@@ -105,7 +146,9 @@ function Card({
     description: album.description ?? "",
     tags: album.tags,
     moduleId: album.moduleId ?? "",
+    needsReview: album.needsReview,
   });
+  const [reviewNote, setReviewNote] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
@@ -115,7 +158,7 @@ function Card({
       onSubmit={(e) => {
         e.preventDefault();
         startTransition(async () => {
-          const res = await updateAlbum(album.id, form);
+          const res = await updateAlbum(album.id, form, reviewNote);
           if (res.errors?.length) return setErrors(res.errors);
           setErrors([]);
           setEditing(false);
@@ -123,7 +166,15 @@ function Card({
       }}
     >
       <Errors errors={errors} />
-      <Fields value={form} onChange={setForm} modules={modules} knownTags={knownTags} />
+      <Fields
+        value={form}
+        onChange={setForm}
+        modules={modules}
+        knownTags={knownTags}
+        reviewNote={reviewNote}
+        onReviewNote={setReviewNote}
+        showReviewNote={form.needsReview && !album.needsReview}
+      />
       <div className="flex gap-2">
         <button type="submit" className={primaryBtn} disabled={pending}>
           {pending ? "Saving…" : "Save"}
@@ -167,9 +218,12 @@ function Card({
               <AlbumCoverMosaic covers={album.covers} className="h-12 w-12 overflow-hidden rounded border border-zinc-300 dark:border-zinc-700" />
             </Link>
             <div className="min-w-0 flex-1">
-              <Link href={`/media/albums/${album.id}`} className="truncate text-sm font-medium hover:underline underline-offset-4">
-                {album.name}
-              </Link>
+              <span className="flex items-center gap-1.5">
+                <Link href={`/media/albums/${album.id}`} className="truncate text-sm font-medium hover:underline underline-offset-4">
+                  {album.name}
+                </Link>
+                <ReviewBadge album={album} />
+              </span>
               <p className="flex flex-wrap items-center gap-x-1 truncate text-xs text-zinc-500">
                 {album.count} item{album.count === 1 ? "" : "s"}
                 {album.matched > 0 && ` · ${album.matched} by tag`}
@@ -212,6 +266,7 @@ function Card({
               >
                 {album.name}
               </Link>
+              <ReviewBadge album={album} />
               <p className="text-[10px] text-zinc-500">{album.count} item{album.count === 1 ? "" : "s"}</p>
               {actionsRow}
             </>
@@ -232,9 +287,12 @@ function Card({
           formBody
         ) : (
           <>
-            <Link href={`/media/albums/${album.id}`} className="text-sm font-medium break-words hover:underline underline-offset-4">
-              {album.name}
-            </Link>
+            <span className="flex items-center gap-1.5">
+              <Link href={`/media/albums/${album.id}`} className="text-sm font-medium break-words hover:underline underline-offset-4">
+                {album.name}
+              </Link>
+              <ReviewBadge album={album} />
+            </span>
             <p className="text-xs text-zinc-500">
               {album.count} item{album.count === 1 ? "" : "s"}
               {album.matched > 0 && ` · ${album.matched} by tag`}
@@ -286,6 +344,7 @@ export function AlbumGrid({
 }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<AlbumInput>(blank());
+  const [reviewNote, setReviewNote] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
@@ -297,16 +356,25 @@ export function AlbumGrid({
           onSubmit={(e) => {
             e.preventDefault();
             startTransition(async () => {
-              const res = await createAlbum(form);
+              const res = await createAlbum(form, reviewNote);
               if (res.errors?.length) return setErrors(res.errors);
               setErrors([]);
               setForm(blank());
+              setReviewNote("");
               setAdding(false);
             });
           }}
         >
           <Errors errors={errors} />
-          <Fields value={form} onChange={setForm} modules={modules} knownTags={knownTags} />
+          <Fields
+            value={form}
+            onChange={setForm}
+            modules={modules}
+            knownTags={knownTags}
+            reviewNote={reviewNote}
+            onReviewNote={setReviewNote}
+            showReviewNote={form.needsReview}
+          />
           <div className="flex gap-2">
             <button type="submit" className={primaryBtn} disabled={pending}>
               {pending ? "Creating…" : "Create album"}

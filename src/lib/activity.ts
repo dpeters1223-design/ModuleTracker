@@ -16,6 +16,7 @@ type Actor = { id: string; email: string };
 type EntityType =
   | "task"
   | "taskAttachment"
+  | "taskComment"
   | "moduleAsset"
   | "documentLink"
   | "moduleVersion"
@@ -24,7 +25,8 @@ type EntityType =
   | "playthroughFeedback"
   | "mediaItem"
   | "mediaAlbum"
-  | "mediaAlbumItem";
+  | "mediaAlbumItem"
+  | "mediaReview";
 
 export type LogInput = {
   action: string;
@@ -107,6 +109,7 @@ function model(tx: Prisma.TransactionClient, type: string) {
   const m = {
     task: tx.task,
     taskAttachment: tx.taskAttachment,
+    taskComment: tx.taskComment,
     moduleAsset: tx.moduleAsset,
     documentLink: tx.documentLink,
     moduleVersion: tx.moduleVersion,
@@ -116,6 +119,7 @@ function model(tx: Prisma.TransactionClient, type: string) {
     mediaItem: tx.mediaItem,
     mediaAlbum: tx.mediaAlbum,
     mediaAlbumItem: tx.mediaAlbumItem,
+    mediaReview: tx.mediaReview,
   }[type];
   if (!m) throw new Error(`Can't undo changes to ${type}.`);
   return m as unknown as {

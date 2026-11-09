@@ -24,11 +24,20 @@ const norm = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+/** Where an Owner box is split into one name per person — shared so display-preserving
+ * splits (splitOwnerText) and matching splits (ownerParts) can't drift apart. */
+const OWNER_SPLIT = /,|&|\/|\+|;|\band\b/i;
+
 /** The people named in an Owner box: "Tom, Ksenia & Jay" → ["tom", "ksenia", "jay"]. */
 export function ownerParts(owner: string | null | undefined): string[] {
+  return (owner ?? "").split(OWNER_SPLIT).map(norm).filter(Boolean);
+}
+
+/** Same split as ownerParts, but keeping each name as typed — for editing in place. */
+export function splitOwnerText(owner: string | null | undefined): string[] {
   return (owner ?? "")
-    .split(/,|&|\/|\+|;|\band\b/i)
-    .map(norm)
+    .split(OWNER_SPLIT)
+    .map((s) => s.trim())
     .filter(Boolean);
 }
 
