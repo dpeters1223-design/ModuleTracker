@@ -54,6 +54,42 @@ export function formatBytes(bytes: number): string {
   return `${n < 10 ? n.toFixed(1) : Math.round(n)} ${units[i]}`;
 }
 
+/**
+ * The library lets a file be retitled freely, and that title (not the original
+ * filename) is what gets downloaded — so without this, a renamed title loses its
+ * extension and the OS has no idea what kind of file it just saved.
+ */
+const EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heif",
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "text/plain": "txt",
+  "text/csv": "csv",
+  "application/zip": "zip",
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "audio/ogg": "ogg",
+  "audio/mp4": "m4a",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
+
+/** The extension a download needs to be recognized as this type, if any. */
+export function extensionForMime(mime: string): string | null {
+  return EXT_BY_MIME[mime] ?? null;
+}
+
 /** A short word for the kind of file, for the icon-less file rows. */
 export function fileKind(mime: string): string {
   if (isImageMime(mime)) return "Image";

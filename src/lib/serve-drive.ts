@@ -2,7 +2,7 @@ import "server-only";
 import { auth } from "@/auth";
 import { isAllowedEmail } from "@/lib/allowlist";
 import { fetchFileContent, getDriveOwnerToken } from "@/lib/google-drive";
-import { isImageMime } from "@/lib/attachments";
+import { extensionForMime, isImageMime } from "@/lib/attachments";
 
 /**
  * Streams one of the app's own Drive files back to a signed-in team member. Shared by
@@ -22,11 +22,14 @@ export async function serveDriveFile(file: {
   try {
     const bytes = await fetchFileContent(await getDriveOwnerToken(), file.driveFileId);
     const disposition = isImageMime(file.mimeType) ? "inline" : "attachment";
+    // Headers only allow plain ASCII; accents and emoji in the name become "_".
+    const safeName = file.name.replace(/[^\x20-\x7e]|["\\]/g, "_");
+    const ext = extensionForMime(file.mimeType);
+    const filename = ext && !safeName.toLowerCase().endsWith(`.${ext}`) ? `${safeName}.${ext}` : safeName;
     return new Response(bytes.body, {
       headers: {
         "Content-Type": file.mimeType,
-        // Headers only allow plain ASCII; accents and emoji in the name become "_".
-        "Content-Disposition": `${disposition}; filename="${file.name.replace(/[^\x20-\x7e]|["\\]/g, "_")}"`,
+        "Content-Disposition": `${disposition}; filename="${filename}"`,
         "Cache-Control": "private, max-age=86400",
         "X-Content-Type-Options": "nosniff",
         // Even if something other than a plain image slipped through, it can't run anything.

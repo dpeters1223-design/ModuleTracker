@@ -13,6 +13,7 @@ import {
 import {
   addMediaLink,
   attachExistingMedia,
+  createQuickAsset,
   prepareMediaUpload,
   registerMedia,
   removeMedia,
@@ -214,11 +215,18 @@ async function uploadToDrive(
 
 const blankInput = (): MediaInput => ({ name: "", description: "", tags: [], moduleId: "", sceneId: "", assetId: "" });
 
+/** Sentinel for the Asset select's "+ New asset…" row — never a real asset id. */
+const NEW_ASSET = "__new__";
+
 /**
  * Name, module, asset, tags and description — shared by the add and edit forms.
  * Asset is scoped to whichever module is picked, since an asset belongs to one
  * module and the two selects need to agree: switching the module drops an asset
  * choice that no longer belongs to it, rather than leaving a mismatched pair.
+ *
+ * The asset list also offers "+ New asset…" — picking that opens a name field
+ * right here, so the asset can be created and linked without leaving the upload
+ * or link form to go build out the module's asset list first.
  */
 function Fields({
   value,
@@ -237,6 +245,22 @@ function Fields({
 }) {
   const set = <K extends keyof MediaInput>(k: K, v: MediaInput[K]) => onChange({ ...value, [k]: v });
   const assetsInModule = assets.filter((a) => a.moduleId === value.moduleId);
+  const [newAssetName, setNewAssetName] = useState<string | null>(null);
+  const [creatingAsset, setCreatingAsset] = useState(false);
+  const [newAssetError, setNewAssetError] = useState("");
+
+  async function addNewAsset() {
+    const name = (newAssetName ?? "").trim();
+    if (!name) return;
+    setCreatingAsset(true);
+    setNewAssetError("");
+    const res = await createQuickAsset(value.moduleId, name);
+    setCreatingAsset(false);
+    if (res.errors?.length) return setNewAssetError(res.errors[0]);
+    set("assetId", res.id!);
+    setNewAssetName(null);
+  }
+
   return (
     <div className="space-y-2">
       <input
@@ -255,6 +279,7 @@ function Fields({
             const moduleId = e.target.value;
             const stillValid = assets.some((a) => a.id === value.assetId && a.moduleId === moduleId);
             onChange({ ...value, moduleId, assetId: stillValid ? value.assetId : "" });
+            setNewAssetName(null);
           }}
         >
           <option value="">No module</option>
@@ -267,9 +292,17 @@ function Fields({
         <select
           aria-label="Asset"
           className={inputCls}
-          value={value.assetId}
+          value={newAssetName !== null ? NEW_ASSET : value.assetId}
           disabled={!value.moduleId}
-          onChange={(e) => set("assetId", e.target.value)}
+          onChange={(e) => {
+            if (e.target.value === NEW_ASSET) {
+              setNewAssetName("");
+              setNewAssetError("");
+            } else {
+              setNewAssetName(null);
+              set("assetId", e.target.value);
+            }
+          }}
         >
           <option value="">{value.moduleId ? "Not a specific asset" : "Pick a module first"}</option>
           {assetsInModule.map((a) => (
@@ -277,8 +310,46 @@ function Fields({
               {a.name}
             </option>
           ))}
+          {value.moduleId && <option value={NEW_ASSET}>+ New asset…</option>}
         </select>
       </div>
+      {newAssetName !== null && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            aria-label="New asset name"
+            className={inputCls}
+            placeholder="New asset's name"
+            autoFocus
+            value={newAssetName}
+            onChange={(e) => setNewAssetName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void addNewAsset();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className={secondaryBtn}
+            disabled={creatingAsset || !newAssetName.trim()}
+            onClick={() => void addNewAsset()}
+          >
+            {creatingAsset ? "Adding…" : "Add"}
+          </button>
+          <button
+            type="button"
+            className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+            onClick={() => {
+              setNewAssetName(null);
+              setNewAssetError("");
+            }}
+          >
+            Cancel
+          </button>
+          {newAssetError && <p className="w-full text-xs text-red-700 dark:text-red-400">{newAssetError}</p>}
+        </div>
+      )}
       <TagsInput
         value={value.tags}
         onChange={(tags) => set("tags", tags)}

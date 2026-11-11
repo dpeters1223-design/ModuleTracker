@@ -67,6 +67,31 @@ async function resolveAssetLink(input: MediaInput): Promise<{ moduleId: string |
   return { moduleId: asset.moduleId, assetId: input.assetId };
 }
 
+/**
+ * Creates a bare asset ("Needed", type Other) so it can be linked to a media item
+ * on the spot, instead of sending the user over to the module's asset list first.
+ */
+export async function createQuickAsset(moduleId: string, name: string): Promise<MediaResult & { id?: string }> {
+  const user = await requireUser();
+  const trimmed = name.trim().slice(0, 200);
+  if (!trimmed) return { errors: ["Give the asset a name."] };
+  const mod = await prisma.module.findUnique({ where: { id: moduleId }, select: { id: true } });
+  if (!mod) return { errors: ["That module no longer exists."] };
+
+  const last = await prisma.moduleAsset.findFirst({ where: { moduleId }, orderBy: { order: "desc" }, select: { order: true } });
+  const asset = await prisma.moduleAsset.create({ data: { moduleId, name: trimmed, order: (last?.order ?? 0) + 1 } });
+  await logActivity(user, {
+    action: "asset.create",
+    summary: `Added asset "${asset.name}"`,
+    entityType: "moduleAsset",
+    entityId: asset.id,
+    moduleId,
+    after: asset,
+  });
+  changed();
+  return { id: asset.id };
+}
+
 /** Second half: check what Drive actually received, then add it to the library. */
 export async function registerMedia(
   fileId: string,
