@@ -14,6 +14,7 @@ export const TEAM: { email: string; name: string; aliases: string[] }[] = [
   { email: "sm2868@cornell.edu", name: "Suryash Malviya", aliases: ["Suryash"] },
   { email: "mlh355@cornell.edu", name: "Maggie Huggins", aliases: ["Maggie"] },
   { email: "kc359@cornell.edu", name: "", aliases: [] },
+  { email: "st2275@cornell.edu", name: "Syndiely Tsoungui", aliases: ["Syndiely"] },
 ];
 
 /** Lowercase, punctuation dropped, single spaces: "Prof. Valla" → "prof valla". */
