@@ -1,13 +1,25 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import {
   createFeatureRequest,
   deleteFeatureRequest,
   setFeatureRequestStatus,
   type FeatureRequestResult,
 } from "@/app/requests/actions";
+import { prepareFeatureRequestAttachmentUpload, registerFeatureRequestAttachment } from "@/app/requests/attachment-actions";
 import { CLOSED_FEATURE_REQUEST_STATUSES, FEATURE_REQUEST_STATUS_LABELS } from "@/lib/labels";
+import { isImageMime } from "@/lib/attachments";
+import {
+  FeatureRequestAttachPanel,
+  FeatureRequestAttachmentList,
+  shrink,
+  uploadToDrive,
+  type FeatureRequestAttachmentRow,
+} from "@/components/feature-request-attachments";
+
+export type EntityOption = { id: string; label: string };
 
 export type FeatureRequestRow = {
   id: string;
@@ -16,6 +28,11 @@ export type FeatureRequestRow = {
   status: keyof typeof FEATURE_REQUEST_STATUS_LABELS;
   submittedByName: string | null;
   createdAt: string;
+  module: EntityOption | null;
+  task: (EntityOption & { moduleId: string }) | null;
+  mediaItem: EntityOption | null;
+  documentLink: (EntityOption & { moduleId: string }) | null;
+  attachments: FeatureRequestAttachmentRow[];
 };
 
 const STATUSES = Object.keys(FEATURE_REQUEST_STATUS_LABELS) as (keyof typeof FEATURE_REQUEST_STATUS_LABELS)[];
@@ -37,12 +54,42 @@ const btn = "rounded-md px-3 py-1.5 text-sm font-medium transition disabled:curs
 const primaryBtn = `${btn} bg-brand text-white hover:bg-brand-hover dark:bg-gold dark:text-brand dark:hover:bg-gold-dark`;
 const secondaryBtn = `${btn} border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800`;
 const linkBtn = "text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100";
+const chipCls =
+  "rounded-full border border-zinc-300 px-2 py-0.5 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";
 
-function RequestForm({ onCancel }: { onCancel: () => void }) {
+function RequestForm({
+  modules,
+  tasks,
+  mediaItems,
+  scripts,
+  onCancel,
+}: {
+  modules: EntityOption[];
+  tasks: EntityOption[];
+  mediaItems: EntityOption[];
+  scripts: EntityOption[];
+  onCancel: () => void;
+}) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [moduleId, setModuleId] = useState("");
+  const [taskId, setTaskId] = useState("");
+  const [mediaItemId, setMediaItemId] = useState("");
+  const [documentLinkId, setDocumentLinkId] = useState("");
+  const [picked, setPicked] = useState<File[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
+
+  const select = (value: string, onChange: (v: string) => void, options: EntityOption[], placeholder: string) => (
+    <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{placeholder}</option>
+      {options.map((o) => (
+        <option key={o.id} value={o.id}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
 
   return (
     <form
@@ -50,9 +97,23 @@ function RequestForm({ onCancel }: { onCancel: () => void }) {
       onSubmit={(e) => {
         e.preventDefault();
         startTransition(async () => {
-          const res: FeatureRequestResult = await createFeatureRequest(title, body);
+          const res: FeatureRequestResult = await createFeatureRequest(title, body, { moduleId, taskId, mediaItemId, documentLinkId });
           if (res.errors?.length) return setErrors(res.errors);
           setErrors([]);
+          if (res.id && picked.length) {
+            const upload = await prepareFeatureRequestAttachmentUpload(res.id);
+            if (upload.accessToken) {
+              for (const original of picked) {
+                const file = isImageMime(original.type) ? await shrink(original) : original;
+                try {
+                  const fileId = await uploadToDrive(file, { accessToken: upload.accessToken, folderId: upload.folderId });
+                  await registerFeatureRequestAttachment(res.id, fileId);
+                } catch {
+                  // Request is already submitted either way — a failed image upload shouldn't look like a failed submission.
+                }
+              }
+            }
+          }
           onCancel();
         });
       }}
@@ -74,6 +135,25 @@ function RequestForm({ onCancel }: { onCancel: () => void }) {
         value={body}
         onChange={(e) => setBody(e.target.value)}
       />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="space-y-1 text-xs text-zinc-500">
+          Tag a module
+          {select(moduleId, setModuleId, modules, "None")}
+        </label>
+        <label className="space-y-1 text-xs text-zinc-500">
+          Tag a task
+          {select(taskId, setTaskId, tasks, "None")}
+        </label>
+        <label className="space-y-1 text-xs text-zinc-500">
+          Tag a piece of media
+          {select(mediaItemId, setMediaItemId, mediaItems, "None")}
+        </label>
+        <label className="space-y-1 text-xs text-zinc-500">
+          Tag a script
+          {select(documentLinkId, setDocumentLinkId, scripts, "None")}
+        </label>
+      </div>
+      <FeatureRequestAttachPanel pickedCount={picked.length} onPick={(files) => setPicked((prev) => [...prev, ...files])} />
       <div className="flex gap-2">
         <button type="submit" className={primaryBtn} disabled={pending || !title.trim()}>
           {pending ? "Submitting…" : "Submit"}
@@ -86,12 +166,42 @@ function RequestForm({ onCancel }: { onCancel: () => void }) {
   );
 }
 
-export function FeatureRequestList({ items }: { items: FeatureRequestRow[] }) {
+export function FeatureRequestList({
+  items,
+  modules,
+  tasks,
+  mediaItems,
+  scripts,
+}: {
+  items: FeatureRequestRow[];
+  modules: EntityOption[];
+  tasks: EntityOption[];
+  mediaItems: EntityOption[];
+  scripts: EntityOption[];
+}) {
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const open = items.filter((r) => !isClosed(r.status));
   const closed = items.filter((r) => isClosed(r.status));
+
+  const tags = (r: FeatureRequestRow) => {
+    const chips: { href: string; label: string }[] = [];
+    if (r.module) chips.push({ href: `/modules/${r.module.id}`, label: r.module.label });
+    if (r.task) chips.push({ href: `/modules/${r.task.moduleId}/tasks/${r.task.id}`, label: r.task.label });
+    if (r.mediaItem) chips.push({ href: `/media`, label: r.mediaItem.label });
+    if (r.documentLink) chips.push({ href: `/scripts/${r.documentLink.moduleId}`, label: r.documentLink.label });
+    if (!chips.length) return null;
+    return (
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {chips.map((c) => (
+          <Link key={c.href + c.label} href={c.href} className={chipCls}>
+            {c.label}
+          </Link>
+        ))}
+      </div>
+    );
+  };
 
   const row = (r: FeatureRequestRow) => (
     <li key={r.id} className="flex flex-wrap items-start gap-3 px-3 py-2.5">
@@ -120,6 +230,8 @@ export function FeatureRequestList({ items }: { items: FeatureRequestRow[] }) {
           {r.submittedByName && `${r.submittedByName} · `}
           {r.createdAt}
         </p>
+        {tags(r)}
+        <FeatureRequestAttachmentList attachments={r.attachments} />
       </div>
       <button
         type="button"
@@ -156,7 +268,9 @@ export function FeatureRequestList({ items }: { items: FeatureRequestRow[] }) {
         )}
       </div>
 
-      {adding && <RequestForm onCancel={() => setAdding(false)} />}
+      {adding && (
+        <RequestForm modules={modules} tasks={tasks} mediaItems={mediaItems} scripts={scripts} onCancel={() => setAdding(false)} />
+      )}
 
       {open.length > 0 && (
         <section className="space-y-2">

@@ -147,19 +147,20 @@ model User {
   /// When this user last opened their notifications (the bell)
   lastSeenActivityAt   DateTime?
 
-  documentLinksAdded     DocumentLink[]
-  attachmentsAdded       TaskAttachment[]
-  chatChannelsCreated    ChatChannel[]
-  chatChannelMemberships ChatChannelMember[]
-  chatMessages           ChatMessage[]
-  chatProfile            ChatProfile?
-  modulesSignedOff       Module[]              @relation("ModuleSignOff")
-  playthroughFeedback    PlaythroughFeedback[]
-  mediaItemsAdded        MediaItem[]
-  mediaAlbumsCreated     MediaAlbum[]
-  taskComments           TaskComment[]
-  mediaReviews           MediaReview[]
-  featureRequests        FeatureRequest[]
+  documentLinksAdded             DocumentLink[]
+  attachmentsAdded               TaskAttachment[]
+  chatChannelsCreated            ChatChannel[]
+  chatChannelMemberships         ChatChannelMember[]
+  chatMessages                   ChatMessage[]
+  chatProfile                    ChatProfile?
+  modulesSignedOff               Module[]                   @relation("ModuleSignOff")
+  playthroughFeedback            PlaythroughFeedback[]
+  mediaItemsAdded                MediaItem[]
+  mediaAlbumsCreated             MediaAlbum[]
+  taskComments                   TaskComment[]
+  mediaReviews                   MediaReview[]
+  featureRequests                FeatureRequest[]
+  featureRequestAttachmentsAdded FeatureRequestAttachment[]
 
   @@map("users")
 }
@@ -202,6 +203,7 @@ model Module {
   mediaAlbums     MediaAlbum[]
   dependencyNodes DependencyNode[]
   dependencyEdges DependencyEdge[]
+  featureRequests FeatureRequest[]
 
   @@map("modules")
 }
@@ -275,9 +277,10 @@ model DocumentLink {
   addedById   String?
   addedAt     DateTime     @default(now())
 
-  module  Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  scene   Scene? @relation(fields: [sceneId], references: [id], onDelete: SetNull)
-  addedBy User?  @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  module          Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  scene           Scene?           @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  addedBy         User?            @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  featureRequests FeatureRequest[]
 
   @@map("document_links")
 }
@@ -300,12 +303,13 @@ model Task {
   /// what happened, so the task gets a feedback tab instead of just a notes box.
   isPlaythrough Boolean    @default(false)
 
-  module      Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  parent      Task?                 @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
-  subtasks    Task[]                @relation("Subtasks")
-  attachments TaskAttachment[]
-  feedback    PlaythroughFeedback[]
-  comments    TaskComment[]
+  module          Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  parent          Task?                 @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks        Task[]                @relation("Subtasks")
+  attachments     TaskAttachment[]
+  feedback        PlaythroughFeedback[]
+  comments        TaskComment[]
+  featureRequests FeatureRequest[]
 
   @@index([parentId])
   @@map("tasks")
@@ -424,12 +428,13 @@ model MediaItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  module  Module?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
-  scene   Scene?           @relation(fields: [sceneId], references: [id], onDelete: SetNull)
-  asset   ModuleAsset?     @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  addedBy User?            @relation(fields: [addedById], references: [id], onDelete: SetNull)
-  albums  MediaAlbumItem[]
-  reviews MediaReview[]
+  module          Module?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  scene           Scene?           @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  asset           ModuleAsset?     @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  addedBy         User?            @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  albums          MediaAlbumItem[]
+  reviews         MediaReview[]
+  featureRequests FeatureRequest[]
 
   @@index([moduleId])
   @@index([assetId])
@@ -678,13 +683,42 @@ model FeatureRequest {
   /// Snapshot, so a request still says who asked for it if the user is removed.
   submittedByName String?
   status          FeatureRequestStatus @default(new)
+  /// Optional "tag" references to whatever the request is about. Not ownership —
+  /// losing the referenced row just clears the tag, never deletes the request.
+  moduleId        String?
+  taskId          String?
+  mediaItemId     String?
+  documentLinkId  String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
-  submittedBy User? @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  submittedBy  User?                      @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  module       Module?                    @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  task         Task?                      @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  mediaItem    MediaItem?                 @relation(fields: [mediaItemId], references: [id], onDelete: SetNull)
+  documentLink DocumentLink?              @relation(fields: [documentLinkId], references: [id], onDelete: SetNull)
+  attachments  FeatureRequestAttachment[]
 
   @@index([createdAt])
   @@map("feature_requests")
+}
+
+/// An image attached directly to a feature request (as opposed to tagging an
+/// existing MediaItem) — same Drive-backed pattern as TaskAttachment.
+model FeatureRequestAttachment {
+  id               String   @id @default(cuid())
+  featureRequestId String
+  driveFileId      String
+  name             String
+  mimeType         String
+  addedById        String?
+  addedAt          DateTime @default(now())
+
+  featureRequest FeatureRequest @relation(fields: [featureRequestId], references: [id], onDelete: Cascade)
+  addedBy        User?          @relation(fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@index([featureRequestId])
+  @@map("feature_request_attachments")
 }
 
 /// One item in a module's dependency graph (usually mirrors an Uptale tag).

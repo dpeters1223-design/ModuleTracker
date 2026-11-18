@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
-import { getFeatureRequestRows } from "@/lib/feature-requests";
+import { getDocumentLinkOptions, getFeatureRequestRows, getMediaItemOptions, getTaskOptions } from "@/lib/feature-requests";
+import { getModuleOptions } from "@/lib/change-orders";
 import { FeatureRequestList } from "@/components/feature-request-list";
 
 export const metadata: Metadata = { title: "Feature requests · ModuleTracker" };
 
 export default async function RequestsPage() {
   await connection();
-  const items = await getFeatureRequestRows();
+  const [items, modules, tasks, mediaItems, scripts] = await Promise.all([
+    getFeatureRequestRows(),
+    getModuleOptions(),
+    getTaskOptions(),
+    getMediaItemOptions(),
+    getDocumentLinkOptions(),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
@@ -21,7 +28,7 @@ export default async function RequestsPage() {
           Ideas for the app itself — so they stop living only in Slack.
         </p>
       </div>
-      <FeatureRequestList items={items} />
+      <FeatureRequestList items={items} modules={modules} tasks={tasks} mediaItems={mediaItems} scripts={scripts} />
     </main>
   );
 }
