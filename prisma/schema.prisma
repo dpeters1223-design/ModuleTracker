@@ -370,7 +370,14 @@ model PlaythroughFeedback {
   body       String
   /// What this write-up is about. Empty until someone clicks "AI Sort" (or sets
   /// it by hand) — categorization is a manual action, not automatic on submit.
+  /// Derived from `tags` (the union of categories mentioned there).
   categories FeedbackCategory[] @default([])
+  /// The specific phrases "AI Sort" found and which category each belongs to —
+  /// `{ quote: string, category: FeedbackCategory }[]`, highlighted inline in
+  /// the body on display. `quote` must be an exact substring of `body`; a tag
+  /// whose quote no longer matches (edited write-up) is just dropped at render
+  /// time rather than shown wrong.
+  tags       Json?
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
 

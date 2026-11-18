@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import type { FeedbackCategory } from "@prisma/client";
 import { sortPlaythroughFeedback } from "@/app/modules/[id]/feedback-actions";
 import { FEEDBACK_CATEGORY_LABELS } from "@/lib/labels";
+
+export type FeedbackTag = { quote: string; category: FeedbackCategory };
 
 export type FeedbackRow = {
   id: string;
@@ -16,6 +18,7 @@ export type FeedbackRow = {
   when: string;
   body: string;
   categories: FeedbackCategory[];
+  tags: FeedbackTag[];
   mine: boolean;
 };
 
@@ -37,11 +40,58 @@ function Badge({ category }: { category: FeedbackCategory }) {
   );
 }
 
+/**
+ * Splits displayed text into plain/highlighted runs from the tagged quotes.
+ * Quotes are located fresh in whatever substring is actually on screen (so a
+ * quote cut off by truncation just doesn't highlight there, rather than
+ * crashing or highlighting the wrong span) and overlaps are resolved by
+ * keeping the earliest-starting match and dropping anything it overlaps.
+ */
+function highlightBody(text: string, tags: FeedbackTag[]): ReactNode {
+  const matches = tags
+    .map((t) => {
+      const start = text.indexOf(t.quote);
+      return start === -1 ? null : { start, end: start + t.quote.length, category: t.category };
+    })
+    .filter((m): m is { start: number; end: number; category: FeedbackCategory } => m !== null)
+    .sort((a, b) => a.start - b.start);
+
+  const kept: typeof matches = [];
+  let lastEnd = -1;
+  for (const m of matches) {
+    if (m.start >= lastEnd) {
+      kept.push(m);
+      lastEnd = m.end;
+    }
+  }
+  if (!kept.length) return text;
+
+  const pieces: ReactNode[] = [];
+  let cursor = 0;
+  kept.forEach((m, i) => {
+    if (m.start > cursor) pieces.push(text.slice(cursor, m.start));
+    pieces.push(
+      <mark
+        key={i}
+        title={FEEDBACK_CATEGORY_LABELS[m.category]}
+        className={`rounded px-0.5 ${CATEGORY_STYLES[m.category]}`}
+      >
+        {text.slice(m.start, m.end)}
+      </mark>
+    );
+    cursor = m.end;
+  });
+  if (cursor < text.length) pieces.push(text.slice(cursor));
+  return pieces;
+}
+
 function Entry({ entry, showModule }: { entry: FeedbackRow; showModule: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [pending, startTransition] = useTransition();
   const [categories, setCategories] = useState(entry.categories);
+  const [tags, setTags] = useState(entry.tags);
   const long = entry.body.length > 900;
+  const shown = long && !expanded ? `${entry.body.slice(0, 900)}…` : entry.body;
 
   return (
     <article className="rounded-md border border-zinc-300 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-950">
@@ -72,6 +122,7 @@ function Entry({ entry, showModule }: { entry: FeedbackRow; showModule: boolean 
               startTransition(async () => {
                 const res = await sortPlaythroughFeedback(entry.moduleId, entry.id);
                 if (res.categories) setCategories(res.categories);
+                if (res.tags) setTags(res.tags);
               });
             }}
           >
@@ -79,9 +130,7 @@ function Entry({ entry, showModule }: { entry: FeedbackRow; showModule: boolean 
           </button>
         </div>
       </header>
-      <p className="text-sm whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
-        {long && !expanded ? `${entry.body.slice(0, 900)}…` : entry.body}
-      </p>
+      <p className="text-sm whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{highlightBody(shown, tags)}</p>
       {long && (
         <button
           type="button"

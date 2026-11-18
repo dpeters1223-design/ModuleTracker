@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { moduleTitle } from "@/lib/script-template";
 import { dayInZone, timeInZone } from "@/lib/dates";
 import { dayLabel } from "@/lib/activity-feed";
+import { parseFeedbackTags } from "@/lib/ai-sort";
 import type { FeedbackRow } from "@/components/feedback-list";
 
 /** Every playthrough write-up matching `where`, newest first, with its module/task context. */
@@ -25,6 +26,7 @@ export async function getFeedbackRows(
     when: `${dayLabel(dayInZone(f.createdAt))} at ${timeInZone(f.createdAt)}`,
     body: f.body,
     categories: f.categories,
+    tags: parseFeedbackTags(f.tags),
     mine: f.authorId === viewerId,
   }));
 }
