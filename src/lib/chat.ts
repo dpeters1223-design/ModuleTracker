@@ -2,6 +2,9 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { isAllowedEmail } from "@/lib/allowlist";
 import { dayInZone, timeInZone } from "@/lib/dates";
+import { emptyReactions, type ReactionSummary } from "@/lib/chat-reactions";
+
+export { REACTION_KINDS, type ReactionCount, type ReactionSummary } from "@/lib/chat-reactions";
 
 /** Fixed id so every request upserts the same row instead of racing to create it. */
 export const TEAM_CHANNEL_ID = "team-channel";
@@ -31,9 +34,6 @@ export type ChatAuthor = {
   /** Their Google photo, unless they turned it off. */
   image: string | null;
 };
-
-/** One fixed "like/acknowledge" reaction, not a pick-an-emoji set. */
-export type ReactionSummary = { count: number; mine: boolean; names: string[] };
 
 export type MessageRow = {
   id: string;
@@ -77,26 +77,24 @@ export const toMessageRow = (m: MessageRecord): MessageRow => ({
   author: m.author ? toChatAuthor(m.author) : null,
   // Filled in by listMessagesForChannel / pollChat, which know the viewer and
   // can batch the lookup — a brand-new message (sendMessage) has none yet anyway.
-  reactions: { count: 0, mine: false, names: [] },
+  reactions: emptyReactions(),
 });
 
-/** Reaction counts for a batch of messages, from the viewer's point of view. */
+/** Per-kind reaction counts for a batch of messages, from the viewer's point of view. */
 export async function reactionSummaries(messageIds: string[], viewerId: string): Promise<Record<string, ReactionSummary>> {
   if (!messageIds.length) return {};
   const rows = await prisma.chatMessageReaction.findMany({
     where: { messageId: { in: messageIds } },
-    select: { messageId: true, userId: true, user: { select: authorSelect } },
+    select: { messageId: true, userId: true, kind: true, user: { select: authorSelect } },
   });
-  const byMessage = new Map<string, typeof rows>();
-  for (const r of rows) byMessage.set(r.messageId, [...(byMessage.get(r.messageId) ?? []), r]);
 
   const result: Record<string, ReactionSummary> = {};
-  for (const [messageId, list] of byMessage) {
-    result[messageId] = {
-      count: list.length,
-      mine: list.some((r) => r.userId === viewerId),
-      names: list.map((r) => toChatAuthor(r.user).name),
-    };
+  for (const id of messageIds) result[id] = emptyReactions();
+  for (const r of rows) {
+    const bucket = result[r.messageId][r.kind];
+    bucket.count++;
+    if (r.userId === viewerId) bucket.mine = true;
+    bucket.names.push(toChatAuthor(r.user).name);
   }
   return result;
 }

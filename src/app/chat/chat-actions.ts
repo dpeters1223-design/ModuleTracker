@@ -1,8 +1,10 @@
 "use server";
 
+import type { ChatReactionKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import {
+  REACTION_KINDS,
   type ChannelSummary,
   type ChatProfileSettings,
   type MessageRow,
@@ -62,22 +64,26 @@ export async function listMessages(channelId: string, after?: string): Promise<M
   return listMessagesForChannel(channelId, after ? new Date(after) : undefined, user.id);
 }
 
-/** Toggles the current user's "like" on a message — one per person, on/off. */
-export async function toggleMessageReaction(messageId: string): Promise<{ error?: string; reactions?: ReactionSummary }> {
+/** Toggles the current user's reaction of one kind on a message — on/off, per kind. */
+export async function toggleMessageReaction(
+  messageId: string,
+  kind: ChatReactionKind
+): Promise<{ error?: string; reactions?: ReactionSummary }> {
+  if (!REACTION_KINDS.includes(kind)) return { error: "Unknown reaction." };
   const user = await requireUser();
   const message = await prisma.chatMessage.findUnique({ where: { id: messageId }, select: { channelId: true } });
   if (!message) return { error: "That message no longer exists." };
   await requireChannelAccess(message.channelId, user.id);
 
   const existing = await prisma.chatMessageReaction.findUnique({
-    where: { messageId_userId: { messageId, userId: user.id } },
+    where: { messageId_userId_kind: { messageId, userId: user.id, kind } },
   });
   if (existing) {
     await prisma.chatMessageReaction.delete({ where: { id: existing.id } });
   } else {
-    await prisma.chatMessageReaction.create({ data: { messageId, userId: user.id } });
+    await prisma.chatMessageReaction.create({ data: { messageId, userId: user.id, kind } });
   }
-  const summary = (await reactionSummaries([messageId], user.id))[messageId] ?? { count: 0, mine: false, names: [] };
+  const summary = (await reactionSummaries([messageId], user.id))[messageId];
   return { reactions: summary };
 }
 

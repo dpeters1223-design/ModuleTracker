@@ -2,8 +2,18 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useTransition } from "react";
-import type { MessageRow, ReactionSummary } from "@/lib/chat";
+import type { ChatReactionKind } from "@prisma/client";
+import type { MessageRow } from "@/lib/chat";
+import { REACTION_KINDS, type ReactionSummary } from "@/lib/chat-reactions";
 import { toggleMessageReaction } from "./chat-actions";
+
+const REACTION_GLYPH: Record<ChatReactionKind, string> = { thumbs_up: "👍", thumbs_down: "👎", heart: "❤️", dog: "🐶" };
+const REACTION_LABEL: Record<ChatReactionKind, string> = {
+  thumbs_up: "Thumbs up",
+  thumbs_down: "Thumbs down",
+  heart: "Heart",
+  dog: "Dog",
+};
 
 /** "Today" / "Yesterday" / "Wed, Sep 24" for a "YYYY-MM-DD" already in the team's zone. */
 function dayLabel(day: string, today: string): string {
@@ -83,8 +93,12 @@ function Avatar({ author }: { author: MessageRow["author"] }) {
 /** Messages close together from one person read as one turn, so only the first is labelled. */
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
-/** The "like/acknowledge" pill under a message. One fixed reaction, not an emoji picker. */
-function LikeButton({
+/**
+ * The four fixed reactions under a message — not an emoji picker. A kind nobody's
+ * used on this message is invisible until the message row is hovered, so a thread
+ * of plain messages doesn't look cluttered with four empty pills each.
+ */
+function ReactionBar({
   messageId,
   reactions,
   onChanged,
@@ -95,30 +109,42 @@ function LikeButton({
 }) {
   const [, startTransition] = useTransition();
   return (
-    <button
-      type="button"
-      title={reactions.names.length ? `Liked by ${reactions.names.join(", ")}` : "Like"}
-      onClick={() => {
-        // Optimistic count/mine; the server's reply (with real names) lands moments later.
-        onChanged(
-          reactions.mine
-            ? { count: Math.max(0, reactions.count - 1), mine: false, names: reactions.names }
-            : { count: reactions.count + 1, mine: true, names: reactions.names }
+    <div className="mt-0.5 flex flex-wrap items-center gap-1">
+      {REACTION_KINDS.map((kind) => {
+        const r = reactions[kind];
+        const used = r.count > 0;
+        return (
+          <button
+            key={kind}
+            type="button"
+            title={r.names.length ? `${REACTION_LABEL[kind]}: ${r.names.join(", ")}` : REACTION_LABEL[kind]}
+            onClick={() => {
+              // Optimistic count/mine for this one kind; the server's reply (with
+              // real names) lands moments later and overwrites it.
+              onChanged({
+                ...reactions,
+                [kind]: r.mine ? { ...r, count: Math.max(0, r.count - 1), mine: false } : { ...r, count: r.count + 1, mine: true },
+              });
+              startTransition(async () => {
+                const res = await toggleMessageReaction(messageId, kind);
+                if (res.reactions) onChanged(res.reactions);
+              });
+            }}
+            className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition ${
+              // Always visible on touch (no hover to reveal it); hidden until hover on desktop.
+              used ? "opacity-100" : "sm:opacity-0 sm:focus:opacity-100 sm:group-hover:opacity-100"
+            } ${
+              r.mine
+                ? "border-teal bg-teal-light text-brand dark:border-teal dark:bg-teal/20 dark:text-teal-light"
+                : "border-transparent text-zinc-400 hover:border-zinc-300 hover:text-zinc-600 dark:hover:border-zinc-600 dark:hover:text-zinc-300"
+            }`}
+          >
+            <span aria-hidden>{REACTION_GLYPH[kind]}</span>
+            {used && <span>{r.count}</span>}
+          </button>
         );
-        startTransition(async () => {
-          const res = await toggleMessageReaction(messageId);
-          if (res.reactions) onChanged(res.reactions);
-        });
-      }}
-      className={`mt-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition ${
-        reactions.mine
-          ? "border-teal bg-teal-light text-brand dark:border-teal dark:bg-teal/20 dark:text-teal-light"
-          : "border-transparent text-zinc-400 hover:border-zinc-300 hover:text-zinc-600 dark:hover:border-zinc-600 dark:hover:text-zinc-300"
-      }`}
-    >
-      <span aria-hidden>👍</span>
-      {reactions.count > 0 && <span>{reactions.count}</span>}
-    </button>
+      })}
+    </div>
   );
 }
 
@@ -186,7 +212,7 @@ export function MessageList({
                 <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
               </div>
             )}
-            <div className={`flex gap-3 ${grouped ? "mt-0.5" : "mt-3"}`}>
+            <div className={`group flex gap-3 ${grouped ? "mt-0.5" : "mt-3"}`}>
               <div className="w-8 shrink-0">{!grouped && <Avatar author={m.author} />}</div>
               <div className="min-w-0 flex-1">
                 {!grouped && (
@@ -205,7 +231,7 @@ export function MessageList({
                 >
                   {m.body}
                 </div>
-                <LikeButton messageId={m.id} reactions={m.reactions} onChanged={(r) => onReactionChanged(m.id, r)} />
+                <ReactionBar messageId={m.id} reactions={m.reactions} onChanged={(r) => onReactionChanged(m.id, r)} />
               </div>
             </div>
           </div>

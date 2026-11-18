@@ -106,6 +106,14 @@ enum ChatNotifyLevel {
   none
 }
 
+/// The four fixed message reactions — a small set, not an open emoji picker.
+enum ChatReactionKind {
+  thumbs_up
+  thumbs_down
+  heart
+  dog
+}
+
 /// What kind of thing a piece of feedback is about. A write-up can be more than
 /// one of these at once (e.g. both instructional_design and ui_ux).
 enum FeedbackCategory {
@@ -677,15 +685,17 @@ model ChatMessage {
 /// One person's "like/acknowledge" on a message — a single fixed reaction, not a
 /// pick-an-emoji set, since that's all David asked for. One per person per message.
 model ChatMessageReaction {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   messageId String
   userId    String
-  createdAt DateTime @default(now())
+  kind      ChatReactionKind @default(thumbs_up)
+  createdAt DateTime         @default(now())
 
   message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([messageId, userId])
+  /// One person can stack more than one of the four on the same message, just not the same one twice.
+  @@unique([messageId, userId, kind])
   @@index([messageId])
   @@map("chat_message_reactions")
 }
