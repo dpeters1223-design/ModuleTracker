@@ -1,9 +1,11 @@
 "use server";
 
+import type { FeedbackCategory } from "@prisma/client";
 import { changed } from "@/lib/changed";
 import { logActivity } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { sortFeedback } from "@/lib/ai-sort";
 
 export type FeedbackResult = { errors?: string[] };
 
@@ -115,4 +117,30 @@ export async function updatePlaythroughFeedback(
   });
   changed();
   return {};
+}
+
+export type SortResult = FeedbackResult & { categories?: FeedbackCategory[] };
+
+/** "AI Sort" button: categorizes one write-up on demand — never automatic. */
+export async function sortPlaythroughFeedback(moduleId: string, feedbackId: string): Promise<SortResult> {
+  const user = await requireUser();
+  const before = await prisma.playthroughFeedback.findFirst({
+    where: { id: feedbackId, task: { moduleId } },
+    include: { task: { select: { title: true } } },
+  });
+  if (!before) return { errors: ["That write-up no longer exists."] };
+
+  const categories = await sortFeedback(before.body);
+  await prisma.playthroughFeedback.update({ where: { id: feedbackId }, data: { categories } });
+  await logActivity(user, {
+    action: "playthroughFeedback.sort",
+    summary: `AI-sorted feedback on "${before.task.title}"`,
+    entityType: "playthroughFeedback",
+    entityId: feedbackId,
+    moduleId,
+    before: { categories: before.categories },
+    after: { categories },
+  });
+  changed();
+  return { categories };
 }

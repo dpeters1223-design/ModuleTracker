@@ -4,7 +4,14 @@ import { connection } from "next/server";
 import type { ModuleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { CHANGE_ORDER_STATUS_LABELS, CLOSED_CHANGE_ORDER_STATUSES, MODULE_STATUS_LABELS, TASK_PHASE_LABELS, TASK_STATUS_LABELS } from "@/lib/labels";
+import {
+  CHANGE_ORDER_STATUS_LABELS,
+  CLOSED_CHANGE_ORDER_STATUSES,
+  CLOSED_FEATURE_REQUEST_STATUSES,
+  MODULE_STATUS_LABELS,
+  TASK_PHASE_LABELS,
+  TASK_STATUS_LABELS,
+} from "@/lib/labels";
 import { buildOwnerIndex, isOwnedBy } from "@/lib/team";
 import { statusPillStyle } from "@/lib/phase-colors";
 import { moduleTitle } from "@/lib/script-template";
@@ -58,7 +65,7 @@ export default async function DashboardPage() {
   const weekStart = addDays(today, -((noon(today).getUTCDay() + 6) % 7));
   const weekEnd = addDays(weekStart, 6);
 
-  const [session, users, modules, openTasks, openChangeOrders, activity] = await Promise.all([
+  const [session, users, modules, openTasks, openChangeOrders, openFeatureRequests, feedbackCount, activity] = await Promise.all([
     auth(),
     prisma.user.findMany({ select: { email: true, name: true } }),
     prisma.module.findMany({ select: { id: true, number: true, name: true, status: true }, orderBy: { createdAt: "desc" } }),
@@ -72,6 +79,8 @@ export default async function DashboardPage() {
       include: { module: { select: { number: true, name: true } } },
       orderBy: [{ goalDate: { sort: "asc", nulls: "last" } }, { suggestedDate: "desc" }],
     }),
+    prisma.featureRequest.count({ where: { status: { notIn: CLOSED_FEATURE_REQUEST_STATUSES } } }),
+    prisma.playthroughFeedback.count(),
     getActivity({}, 8),
   ]);
 
@@ -154,6 +163,8 @@ export default async function DashboardPage() {
         <Stat label="Due this week" value={thisWeek.length} href="/tasks?due=week" />
         <Stat label="Modules in progress" value={inProgress.length} href="/modules" />
         <Stat label="Open change orders" value={openChangeOrders.length} href="/changes" />
+        <Stat label="Feedback write-ups" value={feedbackCount} href="/feedback" />
+        <Stat label="Open feature requests" value={openFeatureRequests} href="/requests" />
       </div>
 
       <Card title={`My tasks (${mine.length} open)`} href="/my-tasks">

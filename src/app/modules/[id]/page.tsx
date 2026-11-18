@@ -24,6 +24,11 @@ import { SceneActivity } from "@/components/scene-activity";
 import { moduleTitle } from "@/lib/script-template";
 import { listAlbums } from "@/lib/media";
 import { AlbumCoverMosaic } from "@/app/media/albums/album-cover";
+import { categoryCounts, getFeedbackRows } from "@/lib/feedback";
+import { FeedbackList } from "@/components/feedback-list";
+import { FeedbackBubbleChart } from "@/components/feedback-bubble-chart";
+import { canViewDependencyGraph, getDependencyGraph } from "@/lib/dependency-graph";
+import { DependencyGraph } from "@/components/dependency-graph";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -51,7 +56,21 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
   const script = await getScript(mod.id);
   const user = await requireUser();
 
-  const [taskRecords, ownerRows, documentRecords, versionRecords, changeOrders, moduleOptions, activity, assetRecords, albums, mediaByAsset] = await Promise.all([
+  const showDependencyGraph = canViewDependencyGraph(user.email);
+  const [
+    taskRecords,
+    ownerRows,
+    documentRecords,
+    versionRecords,
+    changeOrders,
+    moduleOptions,
+    activity,
+    assetRecords,
+    albums,
+    mediaByAsset,
+    feedbackRows,
+    dependencyGraph,
+  ] = await Promise.all([
     prisma.task.findMany({
       where: { moduleId: mod.id },
       include: {
@@ -95,6 +114,8 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
       where: { moduleId: mod.id, assetId: { not: null } },
       select: { id: true, name: true, mimeType: true, driveFileId: true, url: true, assetId: true },
     }),
+    getFeedbackRows({ task: { moduleId: mod.id } }, user.id),
+    showDependencyGraph ? getDependencyGraph(mod.id) : Promise.resolve(null),
   ]);
   const assets: AssetRow[] = assetRecords.map((a) => ({
     id: a.id,
@@ -294,6 +315,33 @@ export default async function ModuleOverviewPage(props: PageProps<"/modules/[id]
           fromScenes={assetsFromScenes}
         />
       </section>
+
+      <section id="feedback" className="scroll-mt-4 space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Feedback</h2>
+            <p className="text-sm text-zinc-500">Every playthrough write-up for this module, in one place.</p>
+          </div>
+          <Link href="/feedback" className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
+            All modules →
+          </Link>
+        </div>
+        <FeedbackBubbleChart counts={categoryCounts(feedbackRows)} />
+        <FeedbackList rows={feedbackRows} />
+      </section>
+
+      {showDependencyGraph && dependencyGraph && (
+        <section id="dependencies" className="scroll-mt-4 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Dependency graph</h2>
+            <p className="text-sm text-zinc-500">
+              How this module&apos;s tags/pieces depend on each other — independent of Uptale, laid out and
+              saved by hand. Only visible to people building in Uptale.
+            </p>
+          </div>
+          <DependencyGraph moduleId={mod.id} assets={assets.map((a) => ({ id: a.id, name: a.name }))} graph={dependencyGraph} />
+        </section>
+      )}
 
       {/* Albums attached to this module. Hidden when there are none, so a module that
           doesn't work in albums isn't given an empty box. */}

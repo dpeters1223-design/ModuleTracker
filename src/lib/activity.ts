@@ -26,7 +26,10 @@ type EntityType =
   | "mediaItem"
   | "mediaAlbum"
   | "mediaAlbumItem"
-  | "mediaReview";
+  | "mediaReview"
+  | "featureRequest"
+  | "dependencyNode"
+  | "dependencyEdge";
 
 export type LogInput = {
   action: string;

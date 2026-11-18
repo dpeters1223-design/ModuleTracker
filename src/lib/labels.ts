@@ -1,4 +1,31 @@
-import type { ChangeOrderStatus, DocumentType, ModuleStatus, TaskPhase, TaskStatus } from "@prisma/client";
+import type {
+  ChangeOrderStatus,
+  DocumentType,
+  FeatureRequestStatus,
+  FeedbackCategory,
+  ModuleStatus,
+  TaskPhase,
+  TaskStatus,
+} from "@prisma/client";
+
+/** Fixed display order — never re-sorted by count (see feedback-bubble-chart.tsx). */
+export const FEEDBACK_CATEGORY_LABELS: Record<FeedbackCategory, string> = {
+  instructional_design: "ID",
+  ui_ux: "UI/UX",
+  media: "Media",
+  tags: "Tags",
+};
+
+export const FEATURE_REQUEST_STATUS_LABELS: Record<FeatureRequestStatus, string> = {
+  new: "New",
+  planned: "Planned",
+  in_progress: "In progress",
+  declined: "Declined",
+  done: "Done",
+};
+
+/** Statuses that mean the request needs no more attention. */
+export const CLOSED_FEATURE_REQUEST_STATUSES: FeatureRequestStatus[] = ["declined", "done"];
 
 export const CHANGE_ORDER_STATUS_LABELS: Record<ChangeOrderStatus, string> = {
   suggested: "Suggested",

@@ -106,6 +106,32 @@ enum ChatNotifyLevel {
   none
 }
 
+/// What kind of thing a piece of feedback is about. A write-up can be more than
+/// one of these at once (e.g. both instructional_design and ui_ux).
+enum FeedbackCategory {
+  instructional_design
+  ui_ux
+  media
+  tags
+}
+
+/// Where one of Jay's feature requests stands.
+enum FeatureRequestStatus {
+  new
+  planned
+  in_progress
+  declined
+  done
+}
+
+/// A second visual axis (alongside color-by-category) on the dependency graph.
+enum DependencyNodeShape {
+  circle
+  square
+  diamond
+  hexagon
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -133,6 +159,7 @@ model User {
   mediaAlbumsCreated     MediaAlbum[]
   taskComments           TaskComment[]
   mediaReviews           MediaReview[]
+  featureRequests        FeatureRequest[]
 
   @@map("users")
 }
@@ -164,15 +191,17 @@ model Module {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  signedOffBy   User?           @relation("ModuleSignOff", fields: [signedOffById], references: [id], onDelete: SetNull)
-  scenes        Scene[]
-  documentLinks DocumentLink[]
-  tasks         Task[]
-  changeOrders  ChangeOrder[]
-  versions      ModuleVersion[]
-  assets        ModuleAsset[]
-  mediaItems    MediaItem[]
-  mediaAlbums   MediaAlbum[]
+  signedOffBy     User?            @relation("ModuleSignOff", fields: [signedOffById], references: [id], onDelete: SetNull)
+  scenes          Scene[]
+  documentLinks   DocumentLink[]
+  tasks           Task[]
+  changeOrders    ChangeOrder[]
+  versions        ModuleVersion[]
+  assets          ModuleAsset[]
+  mediaItems      MediaItem[]
+  mediaAlbums     MediaAlbum[]
+  dependencyNodes DependencyNode[]
+  dependencyEdges DependencyEdge[]
 
   @@map("modules")
 }
@@ -255,21 +284,21 @@ model DocumentLink {
 
 /// A production task for a module, with owner, dates and status, grouped by phase.
 model Task {
-  id        String     @id @default(cuid())
-  moduleId  String
-  phase     TaskPhase
-  title     String
-  owner     String?
-  status    TaskStatus @default(not_started)
-  startDate DateTime?
-  dueDate   DateTime?
-  notes     String?
-  order     Int        @default(0)
+  id            String     @id @default(cuid())
+  moduleId      String
+  phase         TaskPhase
+  title         String
+  owner         String?
+  status        TaskStatus @default(not_started)
+  startDate     DateTime?
+  dueDate       DateTime?
+  notes         String?
+  order         Int        @default(0)
   /// Set on a sub-task: the task it belongs to (one level only). Deleting the parent deletes it.
-  parentId  String?
+  parentId      String?
   /// A playthrough: whoever owns it is expected to play the module and write up
   /// what happened, so the task gets a feedback tab instead of just a notes box.
-  isPlaythrough Boolean @default(false)
+  isPlaythrough Boolean    @default(false)
 
   module      Module                @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   parent      Task?                 @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
@@ -334,13 +363,16 @@ model TaskAttachment {
  * authorName is a snapshot so a write-up still says who wrote it later.
  */
 model PlaythroughFeedback {
-  id         String   @id @default(cuid())
+  id         String             @id @default(cuid())
   taskId     String
   authorId   String?
   authorName String?
   body       String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  /// What this write-up is about. Empty until someone clicks "AI Sort" (or sets
+  /// it by hand) — categorization is a manual action, not automatic on submit.
+  categories FeedbackCategory[] @default([])
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 
   task   Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
@@ -352,12 +384,10 @@ model PlaythroughFeedback {
 /**
  * A file in the media library: an actual image, video, document or audio file the team
  * has, or a link to one held somewhere else.
- *
  * Deliberately NOT a ModuleAsset. An asset is something a module *needs* (tracked
  * needed → received → in Uptale) and most assets never have a file; a media item is a
  * file that exists, and may belong to no module at all. Where the two line up, a media
  * item can point at its asset.
- *
  * Organised by `tags` rather than by hierarchy: a tag like "reference" or "wafer
  * carrier" is what relates one image to another, so there is no image-to-image link.
  */
@@ -387,10 +417,10 @@ model MediaItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  module  Module?      @relation(fields: [moduleId], references: [id], onDelete: SetNull)
-  scene   Scene?       @relation(fields: [sceneId], references: [id], onDelete: SetNull)
-  asset   ModuleAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  addedBy User?        @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  module  Module?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  scene   Scene?           @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  asset   ModuleAsset?     @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  addedBy User?            @relation(fields: [addedById], references: [id], onDelete: SetNull)
   albums  MediaAlbumItem[]
   reviews MediaReview[]
 
@@ -405,7 +435,6 @@ model MediaItem {
  * album's `tags` is in it automatically, and anything else can be pinned in by hand.
  * So "Reference images" stays current on its own, while "Shots for Tom's review" is
  * a deliberate selection — both are albums.
- *
  * An album can be attached to a module, which is what makes it show on that module's
  * page; unattached albums live only in the library.
  */
@@ -544,10 +573,11 @@ model ModuleAsset {
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  scene       Scene?           @relation(fields: [sceneId], references: [id], onDelete: SetNull)
-  attachments TaskAttachment[]
-  mediaItems  MediaItem[]
+  module          Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  scene           Scene?           @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  attachments     TaskAttachment[]
+  mediaItems      MediaItem[]
+  dependencyNodes DependencyNode[]
 
   @@index([moduleId])
   @@map("module_assets")
@@ -575,14 +605,14 @@ model ChatChannel {
 /// Who belongs to a group channel, and where they last read it. For the team
 /// channel this only exists once a user has opened it (to store lastReadAt).
 model ChatChannelMember {
-  id         String    @id @default(cuid())
-  channelId  String
-  userId     String
+  id          String           @id @default(cuid())
+  channelId   String
+  userId      String
   /// Null = never opened this channel, so everything in it is unread.
-  lastReadAt DateTime?
+  lastReadAt  DateTime?
   /// Null = use the person's ChatProfile default. Set to mute just this channel.
   notifyLevel ChatNotifyLevel?
-  joinedAt   DateTime  @default(now())
+  joinedAt    DateTime         @default(now())
 
   channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -628,4 +658,68 @@ model ChatMessage {
 
   @@index([channelId, createdAt])
   @@map("chat_messages")
+}
+
+/// One of Jay's feature requests for the app itself (not a module change — see
+/// ChangeOrder for those). Submit-anywhere, visible-to-everyone inbox so ideas
+/// stop living only in Slack.
+model FeatureRequest {
+  id              String               @id @default(cuid())
+  title           String
+  body            String?
+  submittedById   String?
+  /// Snapshot, so a request still says who asked for it if the user is removed.
+  submittedByName String?
+  status          FeatureRequestStatus @default(new)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  submittedBy User? @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("feature_requests")
+}
+
+/// One item in a module's dependency graph (usually mirrors an Uptale tag).
+/// Independent of Uptale — Jay lays this out by hand to show how dependencies
+/// should be built, rather than this reading Uptale's own data live.
+model DependencyNode {
+  id        String              @id @default(cuid())
+  moduleId  String
+  assetId   String?
+  label     String
+  /// Free text, Jay's own grouping — not FeedbackCategory. Color is derived from
+  /// this string at render time rather than stored.
+  category  String?
+  shape     DependencyNodeShape @default(circle)
+  /// Saved canvas position, so the layout survives a page reload.
+  x         Float               @default(0)
+  y         Float               @default(0)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  module    Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  asset     ModuleAsset?     @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  edgesFrom DependencyEdge[] @relation("EdgeFrom")
+  edgesTo   DependencyEdge[] @relation("EdgeTo")
+
+  @@index([moduleId])
+  @@map("dependency_nodes")
+}
+
+/// A directed "must happen before" link between two nodes in the same module.
+model DependencyEdge {
+  id         String   @id @default(cuid())
+  moduleId   String
+  fromNodeId String
+  toNodeId   String
+  createdAt  DateTime @default(now())
+
+  module   Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  fromNode DependencyNode @relation("EdgeFrom", fields: [fromNodeId], references: [id], onDelete: Cascade)
+  toNode   DependencyNode @relation("EdgeTo", fields: [toNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([fromNodeId, toNodeId])
+  @@index([moduleId])
+  @@map("dependency_edges")
 }
