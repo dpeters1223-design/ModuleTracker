@@ -12,7 +12,7 @@ export default async function ChatPage() {
   const user = await requireUser();
   const channels = await listChannelsForUser(user.id);
   const [messages, { byChannel }] = await Promise.all([
-    listMessagesForChannel(TEAM_CHANNEL_ID),
+    listMessagesForChannel(TEAM_CHANNEL_ID, undefined, user.id),
     unreadChatCounts(user.id, channels),
   ]);
   return (

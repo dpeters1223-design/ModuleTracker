@@ -32,6 +32,9 @@ export type ChatAuthor = {
   image: string | null;
 };
 
+/** One fixed "like/acknowledge" reaction, not a pick-an-emoji set. */
+export type ReactionSummary = { count: number; mine: boolean; names: string[] };
+
 export type MessageRow = {
   id: string;
   body: string;
@@ -43,6 +46,7 @@ export type MessageRow = {
    *  formatting in the browser would disagree with the server's first render. */
   time: string;
   author: ChatAuthor | null;
+  reactions: ReactionSummary;
 };
 
 type UserRecord = {
@@ -71,7 +75,31 @@ export const toMessageRow = (m: MessageRecord): MessageRow => ({
   day: dayInZone(m.createdAt),
   time: timeInZone(m.createdAt),
   author: m.author ? toChatAuthor(m.author) : null,
+  // Filled in by listMessagesForChannel / pollChat, which know the viewer and
+  // can batch the lookup — a brand-new message (sendMessage) has none yet anyway.
+  reactions: { count: 0, mine: false, names: [] },
 });
+
+/** Reaction counts for a batch of messages, from the viewer's point of view. */
+export async function reactionSummaries(messageIds: string[], viewerId: string): Promise<Record<string, ReactionSummary>> {
+  if (!messageIds.length) return {};
+  const rows = await prisma.chatMessageReaction.findMany({
+    where: { messageId: { in: messageIds } },
+    select: { messageId: true, userId: true, user: { select: authorSelect } },
+  });
+  const byMessage = new Map<string, typeof rows>();
+  for (const r of rows) byMessage.set(r.messageId, [...(byMessage.get(r.messageId) ?? []), r]);
+
+  const result: Record<string, ReactionSummary> = {};
+  for (const [messageId, list] of byMessage) {
+    result[messageId] = {
+      count: list.length,
+      mine: list.some((r) => r.userId === viewerId),
+      names: list.map((r) => toChatAuthor(r.user).name),
+    };
+  }
+  return result;
+}
 
 /** The always-on team channel, created on first use. */
 export async function getOrCreateTeamChannel() {
@@ -242,20 +270,23 @@ export const messageSelect = {
 } as const;
 
 /** Cursor-filtered for polling ("newer than `after`"); the last 50 for an initial load. */
-export async function listMessagesForChannel(channelId: string, after?: Date): Promise<MessageRow[]> {
-  if (after) {
-    const rows = await prisma.chatMessage.findMany({
-      where: { channelId, createdAt: { gt: after } },
-      orderBy: { createdAt: "asc" },
-      select: messageSelect,
-    });
-    return rows.map(toMessageRow);
-  }
-  const rows = await prisma.chatMessage.findMany({
-    where: { channelId },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: messageSelect,
-  });
-  return rows.reverse().map(toMessageRow);
+export async function listMessagesForChannel(channelId: string, after: Date | undefined, viewerId: string): Promise<MessageRow[]> {
+  const rows = after
+    ? await prisma.chatMessage.findMany({
+        where: { channelId, createdAt: { gt: after } },
+        orderBy: { createdAt: "asc" },
+        select: messageSelect,
+      })
+    : (
+        await prisma.chatMessage.findMany({
+          where: { channelId },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          select: messageSelect,
+        })
+      ).reverse();
+
+  const base = rows.map(toMessageRow);
+  const reactions = await reactionSummaries(base.map((m) => m.id), viewerId);
+  return base.map((m) => ({ ...m, reactions: reactions[m.id] ?? m.reactions }));
 }

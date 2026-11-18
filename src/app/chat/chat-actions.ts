@@ -7,11 +7,13 @@ import {
   type ChatProfileSettings,
   type MessageRow,
   type NotifyLevel,
+  type ReactionSummary,
   getChatProfile,
   listAllowedUsers,
   listChannelsForUser,
   listMessagesForChannel,
   messageSelect,
+  reactionSummaries,
   requireChannelAccess,
   toMessageRow,
   unreadChatCounts,
@@ -57,7 +59,26 @@ export async function sendMessage(channelId: string, body: string): Promise<Send
 export async function listMessages(channelId: string, after?: string): Promise<MessageRow[]> {
   const user = await requireUser();
   await requireChannelAccess(channelId, user.id);
-  return listMessagesForChannel(channelId, after ? new Date(after) : undefined);
+  return listMessagesForChannel(channelId, after ? new Date(after) : undefined, user.id);
+}
+
+/** Toggles the current user's "like" on a message — one per person, on/off. */
+export async function toggleMessageReaction(messageId: string): Promise<{ error?: string; reactions?: ReactionSummary }> {
+  const user = await requireUser();
+  const message = await prisma.chatMessage.findUnique({ where: { id: messageId }, select: { channelId: true } });
+  if (!message) return { error: "That message no longer exists." };
+  await requireChannelAccess(message.channelId, user.id);
+
+  const existing = await prisma.chatMessageReaction.findUnique({
+    where: { messageId_userId: { messageId, userId: user.id } },
+  });
+  if (existing) {
+    await prisma.chatMessageReaction.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.chatMessageReaction.create({ data: { messageId, userId: user.id } });
+  }
+  const summary = (await reactionSummaries([messageId], user.id))[messageId] ?? { count: 0, mine: false, names: [] };
+  return { reactions: summary };
 }
 
 export async function markChannelRead(channelId: string): Promise<void> {
@@ -119,16 +140,31 @@ export async function setChannelNotifyLevel(channelId: string, level: NotifyLeve
   });
 }
 
-export type PollResult = { messages: MessageRow[]; channels: ChannelSummary[]; unread: Record<string, number> };
+export type PollResult = {
+  messages: MessageRow[];
+  channels: ChannelSummary[];
+  unread: Record<string, number>;
+  /** Refreshed counts for the recent window, keyed by message id — a reaction on a
+   *  message someone already has loaded isn't a "new message", so it wouldn't
+   *  otherwise reach them until they reload. */
+  reactions: Record<string, ReactionSummary>;
+};
 
 /** One round trip per poll tick: new messages in the open channel, plus the sidebar's unread counts. */
 export async function pollChat(activeChannelId: string, after?: string | null): Promise<PollResult> {
   const user = await requireUser();
   await requireChannelAccess(activeChannelId, user.id);
-  const [messages, channels] = await Promise.all([
-    listMessagesForChannel(activeChannelId, after ? new Date(after) : undefined),
+  const [messages, channels, recent] = await Promise.all([
+    listMessagesForChannel(activeChannelId, after ? new Date(after) : undefined, user.id),
     listChannelsForUser(user.id),
+    prisma.chatMessage.findMany({
+      where: { channelId: activeChannelId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { id: true },
+    }),
   ]);
   const { byChannel } = await unreadChatCounts(user.id, channels);
-  return { messages, channels, unread: byChannel };
+  const reactions = await reactionSummaries(recent.map((r) => r.id), user.id);
+  return { messages, channels, unread: byChannel, reactions };
 }

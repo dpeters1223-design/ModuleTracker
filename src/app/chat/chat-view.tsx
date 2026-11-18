@@ -72,6 +72,11 @@ export function ChatView({
           });
           cursorRef.current = new Date(res.messages[res.messages.length - 1].createdAt).toISOString();
         }
+        // A reaction on an already-loaded message isn't a "new message", so it
+        // only reaches other viewers through this refreshed-counts map.
+        if (Object.keys(res.reactions).length) {
+          setMessages((m) => m.map((msg) => (res.reactions[msg.id] ? { ...msg, reactions: res.reactions[msg.id] } : msg)));
+        }
         setChannels(res.channels);
         setUnread({ ...res.unread, [activeId]: 0 });
       } catch {
@@ -138,7 +143,14 @@ export function ChatView({
           <ChatSettings onSaved={() => loadChannel(activeId)} />
         ) : (
           <>
-            <MessageList messages={messages} currentUserEmail={currentUserEmail} today={today} />
+            <MessageList
+              messages={messages}
+              currentUserEmail={currentUserEmail}
+              today={today}
+              onReactionChanged={(messageId, reactions) =>
+                setMessages((m) => m.map((msg) => (msg.id === messageId ? { ...msg, reactions } : msg)))
+              }
+            />
             <Composer
               channelId={activeId}
               onSent={(message) => {

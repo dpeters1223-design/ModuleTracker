@@ -161,6 +161,7 @@ model User {
   mediaReviews                   MediaReview[]
   featureRequests                FeatureRequest[]
   featureRequestAttachmentsAdded FeatureRequestAttachment[]
+  chatMessageReactions           ChatMessageReaction[]
 
   @@map("users")
 }
@@ -665,11 +666,28 @@ model ChatMessage {
   body      String
   createdAt DateTime @default(now())
 
-  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  author  User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  channel   ChatChannel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author    User?                 @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  reactions ChatMessageReaction[]
 
   @@index([channelId, createdAt])
   @@map("chat_messages")
+}
+
+/// One person's "like/acknowledge" on a message — a single fixed reaction, not a
+/// pick-an-emoji set, since that's all David asked for. One per person per message.
+model ChatMessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@map("chat_message_reactions")
 }
 
 /// One of Jay's feature requests for the app itself (not a module change — see

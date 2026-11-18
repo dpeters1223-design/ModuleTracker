@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
-import type { MessageRow } from "@/lib/chat";
+import { useEffect, useRef, useTransition } from "react";
+import type { MessageRow, ReactionSummary } from "@/lib/chat";
+import { toggleMessageReaction } from "./chat-actions";
 
 /** "Today" / "Yesterday" / "Wed, Sep 24" for a "YYYY-MM-DD" already in the team's zone. */
 function dayLabel(day: string, today: string): string {
@@ -82,14 +83,55 @@ function Avatar({ author }: { author: MessageRow["author"] }) {
 /** Messages close together from one person read as one turn, so only the first is labelled. */
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
+/** The "like/acknowledge" pill under a message. One fixed reaction, not an emoji picker. */
+function LikeButton({
+  messageId,
+  reactions,
+  onChanged,
+}: {
+  messageId: string;
+  reactions: ReactionSummary;
+  onChanged: (reactions: ReactionSummary) => void;
+}) {
+  const [, startTransition] = useTransition();
+  return (
+    <button
+      type="button"
+      title={reactions.names.length ? `Liked by ${reactions.names.join(", ")}` : "Like"}
+      onClick={() => {
+        // Optimistic count/mine; the server's reply (with real names) lands moments later.
+        onChanged(
+          reactions.mine
+            ? { count: Math.max(0, reactions.count - 1), mine: false, names: reactions.names }
+            : { count: reactions.count + 1, mine: true, names: reactions.names }
+        );
+        startTransition(async () => {
+          const res = await toggleMessageReaction(messageId);
+          if (res.reactions) onChanged(res.reactions);
+        });
+      }}
+      className={`mt-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition ${
+        reactions.mine
+          ? "border-teal bg-teal-light text-brand dark:border-teal dark:bg-teal/20 dark:text-teal-light"
+          : "border-transparent text-zinc-400 hover:border-zinc-300 hover:text-zinc-600 dark:hover:border-zinc-600 dark:hover:text-zinc-300"
+      }`}
+    >
+      <span aria-hidden>👍</span>
+      {reactions.count > 0 && <span>{reactions.count}</span>}
+    </button>
+  );
+}
+
 export function MessageList({
   messages,
   currentUserEmail,
   today,
+  onReactionChanged,
 }: {
   messages: MessageRow[];
   currentUserEmail: string;
   today: string;
+  onReactionChanged: (messageId: string, reactions: ReactionSummary) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -163,6 +205,7 @@ export function MessageList({
                 >
                   {m.body}
                 </div>
+                <LikeButton messageId={m.id} reactions={m.reactions} onChanged={(r) => onReactionChanged(m.id, r)} />
               </div>
             </div>
           </div>
