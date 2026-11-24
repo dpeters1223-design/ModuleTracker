@@ -2,10 +2,32 @@
 
 import type { FeedbackCategory } from "@prisma/client";
 import { changed } from "@/lib/changed";
-import { logActivity } from "@/lib/activity";
+import { emailList, logActivity } from "@/lib/activity";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { sortFeedback, type FeedbackTag } from "@/lib/ai-sort";
+import { moduleTitle } from "@/lib/script-template";
+import { appUrl, postToSlackLater, slackEscape, slackIds, slackMention } from "@/lib/slack";
+
+/**
+ * Who to @-mention in Slack when playtest feedback is submitted: PLAYTEST_FEEDBACK_NOTIFY,
+ * a comma-separated email list (same shape as SIGNOFF_NOTIFY).
+ */
+const playtestFeedbackNotify = () => emailList(process.env.PLAYTEST_FEEDBACK_NOTIFY);
+
+async function playtestFeedbackMessage(moduleId: string, taskTitle: string, by: string) {
+  const mod = await prisma.module.findUnique({ where: { id: moduleId }, select: { number: true, name: true } });
+  if (!mod) return null;
+  const ids = slackIds();
+  const mentions = playtestFeedbackNotify()
+    .map((email) => slackMention(email, ids))
+    .filter((m): m is string => Boolean(m));
+  return (
+    `:speech_balloon: *${slackEscape(by)}* submitted playtest feedback for *${slackEscape(moduleTitle(mod))}* ` +
+    `— "${slackEscape(taskTitle)}"${mentions.length ? ` · ${mentions.join(" ")}` : ""}\n` +
+    `<${appUrl(`/modules/${moduleId}`)}|Open the module>`
+  );
+}
 
 export type FeedbackResult = { errors?: string[] };
 
@@ -82,6 +104,7 @@ export async function submitPlaythroughFeedback(
     moduleId,
     after: feedback,
   });
+  postToSlackLater(() => playtestFeedbackMessage(moduleId, task.title, me?.name ?? user.email));
   changed();
   return {};
 }
