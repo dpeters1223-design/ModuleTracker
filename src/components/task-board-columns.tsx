@@ -27,6 +27,7 @@ export type BoardTask = {
   title: string;
   phase: string;
   status: string;
+  isPlaythrough: boolean;
   owner: string | null;
   due: string; // "YYYY-MM-DD" or ""
   /** How many images are attached. */
@@ -89,7 +90,13 @@ function DraggableCard({ task, today }: { task: BoardTask; today: string }) {
     >
       <CardBody task={task} today={today} />
       <div className="flex flex-wrap items-center gap-1.5" {...noDrag}>
-        <TaskStatusSelect moduleId={task.moduleId} taskId={task.id} title={task.title} status={task.status} />
+        <TaskStatusSelect
+          moduleId={task.moduleId}
+          taskId={task.id}
+          title={task.title}
+          status={task.status}
+          isPlaythrough={task.isPlaythrough}
+        />
         <TaskPhaseSelect moduleId={task.moduleId} taskId={task.id} title={task.title} phase={task.phase} />
       </div>
     </li>

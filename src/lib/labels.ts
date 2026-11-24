@@ -80,6 +80,7 @@ export const STATUS_PHASE: Partial<Record<ModuleStatus, TaskPhase>> = {
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   not_started: "Not started",
   in_progress: "In progress",
+  feedback_submitted: "Feedback submitted",
   delayed: "Delayed",
   completed: "Done",
 };

@@ -69,6 +69,8 @@ enum AssetStatus {
 enum TaskStatus {
   not_started
   in_progress
+  /// Playthrough tasks only: the write-up has been submitted, waiting on review/follow-up.
+  feedback_submitted
   delayed
   completed
 }

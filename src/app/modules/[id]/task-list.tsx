@@ -182,7 +182,13 @@ function TaskLine({
   const [attaching, setAttaching] = useState(false);
   return (
     <div className="flex flex-wrap items-start gap-3">
-      <TaskStatusSelect moduleId={moduleId} taskId={task.id} title={task.title} status={task.status} />
+      <TaskStatusSelect
+        moduleId={moduleId}
+        taskId={task.id}
+        title={task.title}
+        status={task.status}
+        isPlaythrough={task.isPlaythrough}
+      />
       <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
         <p className={`text-sm ${task.status === "completed" ? "text-zinc-400 line-through" : "font-medium"}`}>
           <Link href={`/modules/${moduleId}/tasks/${task.id}`} className="hover:underline">

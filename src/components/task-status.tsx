@@ -11,13 +11,17 @@ export function TaskStatusSelect({
   taskId,
   title,
   status,
+  isPlaythrough = false,
 }: {
   moduleId: string;
   taskId: string;
   title: string;
   status: string;
+  /** Playthrough tasks get a "Feedback submitted" option; plain tasks don't. */
+  isPlaythrough?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const options = TASK_STATUSES.filter((s) => s !== "feedback_submitted" || isPlaythrough || s === status);
   return (
     <select
       aria-label={`Status of ${title}`}
@@ -31,7 +35,7 @@ export function TaskStatusSelect({
         });
       }}
     >
-      {TASK_STATUSES.map((s) => (
+      {options.map((s) => (
         <option key={s} value={s}>
           {TASK_STATUS_LABELS[s]}
         </option>

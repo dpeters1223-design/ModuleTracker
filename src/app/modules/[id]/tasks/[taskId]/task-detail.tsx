@@ -85,7 +85,13 @@ export function TaskDetail({
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-600 dark:text-zinc-400">
-            <TaskStatusSelect moduleId={moduleId} taskId={task.id} title={task.title} status={task.status} />
+            <TaskStatusSelect
+              moduleId={moduleId}
+              taskId={task.id}
+              title={task.title}
+              status={task.status}
+              isPlaythrough={task.isPlaythrough}
+            />
             {!task.parentId && (
               <span className="inline-flex items-center gap-1.5">
                 <PhaseDot phase={task.phase as TaskPhase} />

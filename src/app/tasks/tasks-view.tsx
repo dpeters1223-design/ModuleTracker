@@ -240,7 +240,13 @@ export async function TasksView({
                     }}
                     className="flex flex-wrap items-start gap-3 px-3 py-2.5"
                   >
-                    <TaskStatusSelect moduleId={t.moduleId} taskId={t.id} title={t.title} status={t.status} />
+                    <TaskStatusSelect
+                      moduleId={t.moduleId}
+                      taskId={t.id}
+                      title={t.title}
+                      status={t.status}
+                      isPlaythrough={t.isPlaythrough}
+                    />
                     <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-0">
                       <p className={`text-sm ${t.status === "completed" ? "text-zinc-400 line-through" : "font-medium"}`}>
                         <Link href={`/modules/${t.module.id}/tasks/${t.id}`} className="hover:underline">

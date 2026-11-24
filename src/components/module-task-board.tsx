@@ -34,6 +34,7 @@ export function ModuleTaskBoard({
       title: t.title,
       phase: t.phase,
       status: t.status,
+      isPlaythrough: t.isPlaythrough,
       owner: t.owner,
       due: day(t.dueDate),
       images: t.attachments?.length ?? 0,
